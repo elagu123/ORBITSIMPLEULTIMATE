@@ -1,0 +1,7 @@
+{
+  "name": "Orbit Simple MKT",
+  "description": "A simple marketing software for small local businesses to manage customers and generate social media content with AI. Powered by Google Gemini.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}

@@ -1,0 +1,1 @@
+// This file is now empty. All type definitions have been moved to 'src/types/index.ts' to create a single, unambiguous source of truth for all types. This resolves a critical module resolution error.
