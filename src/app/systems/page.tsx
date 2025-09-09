@@ -5,7 +5,7 @@ import Button from '../../components/ui/Button';
 import WhatsAppDashboard from '../../components/features/systems/whatsapp/WhatsAppDashboard';
 import { HumanizedMetric, ActionableInsight, SmartNotification, SmartNotificationCategory, Integration } from '../../types/index';
 import { useProfile } from '../../store/profileContext';
-import { useAppData } from '../../store/appDataContext';
+import { useOptimizedAppData } from '../../store/optimized/appDataContext';
 import { aiService } from '../../services/aiService';
 import HumanizedMetricCard from '../../components/features/systems/analytics/HumanizedMetricCard';
 import ActionableInsightCard from '../../components/features/systems/analytics/ActionableInsightCard';
@@ -291,7 +291,7 @@ const WhatsAppChatSimulation: React.FC = () => {
 
 const AnalyticsView: React.FC = () => {
     const { profile } = useProfile();
-    const { customers } = useAppData();
+    const { customers } = useOptimizedAppData();
     const [metrics, setMetrics] = useState<HumanizedMetric[]>([]);
     const [insights, setInsights] = useState<ActionableInsight[]>([]);
     const [isLoading, setIsLoading] = useState(true);

@@ -1,7 +1,7 @@
 import React from 'react';
-// FIX: Corrected import path for types to point to the new single source of truth.
 import { Page } from '../../types/index';
-import { Image, Briefcase, Brain } from '../ui/Icons';
+import { Image, Briefcase, Brain, Home, Users, FileText, Calendar, Settings, ChevronRight } from '../ui/Icons';
+import { useTranslation } from '../../hooks/useTranslation';
 
 interface SidebarProps {
   activePage: Page;
@@ -12,129 +12,197 @@ const NavItem: React.FC<{
   page: Page;
   activePage: Page;
   setActivePage: (page: Page) => void;
-  icon: React.JSX.Element; // FIX: Updated JSX.Element to React.JSX.Element for React 19 compatibility
+  icon: React.JSX.Element;
   label: string;
-}> = ({ page, activePage, setActivePage, icon, label }) => {
+  badge?: string;
+}> = ({ page, activePage, setActivePage, icon, label, badge }) => {
   const isActive = activePage === page;
   return (
-    <li
-      onClick={() => setActivePage(page)}
-      className={`flex items-center p-3 my-1 rounded-lg cursor-pointer transition-colors
-        ${isActive
-          ? 'bg-primary-500 text-white shadow-lg'
-          : 'text-gray-600 dark:text-gray-400 hover:bg-primary-100 dark:hover:bg-gray-800'
-        }`}
-    >
-      {icon}
-      <span className="ml-3 font-medium">{label}</span>
+    <li className="mb-2">
+      <button
+        onClick={() => setActivePage(page)}
+        className={`
+          w-full flex items-center justify-between p-3 rounded-xl transition-all duration-200 group
+          ${isActive
+            ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg shadow-blue-500/25 transform scale-[1.02]'
+            : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100/80 dark:hover:bg-gray-800/80 hover:text-gray-900 dark:hover:text-white'
+          }
+        `}
+      >
+        <div className="flex items-center">
+          <div className={`
+            p-1 rounded-lg transition-colors duration-200
+            ${isActive 
+              ? 'bg-white/20' 
+              : 'group-hover:bg-blue-100/80 dark:group-hover:bg-blue-900/20'
+            }
+          `}>
+            {React.cloneElement(icon, { 
+              className: `w-5 h-5 ${isActive ? 'text-white' : 'text-gray-600 dark:text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-400'}` 
+            })}
+          </div>
+          <span className="ml-3 font-medium">{label}</span>
+        </div>
+        <div className="flex items-center space-x-2">
+          {badge && (
+            <span className={`
+              px-2 py-1 text-xs font-semibold rounded-full
+              ${isActive 
+                ? 'bg-white/20 text-white' 
+                : 'bg-blue-100 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400'
+              }
+            `}>
+              {badge}
+            </span>
+          )}
+          <ChevronRight className={`
+            w-4 h-4 transition-transform duration-200
+            ${isActive 
+              ? 'text-white/70 rotate-90' 
+              : 'text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300 group-hover:translate-x-1'
+            }
+          `} />
+        </div>
+      </button>
     </li>
   );
 };
 
 const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage }) => {
-  return (
-    <aside className="w-64 flex-shrink-0 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 p-4 flex flex-col">
-      <div className="flex items-center mb-8">
-        <svg
-            className="w-10 h-10 text-primary-500"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-        >
-            <circle cx="12" cy="12" r="10" />
-            <circle cx="12" cy="12" r="3" />
-        </svg>
+  const { getPageTitle } = useTranslation();
 
-        <h1 className="text-xl font-bold ml-2 text-gray-800 dark:text-white">Orbit MKT</h1>
+  return (
+    <aside className="w-72 flex-shrink-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-r border-gray-200/50 dark:border-gray-700/50 p-6 flex flex-col">
+      <div className="flex items-center mb-10">
+        <div className="relative">
+          <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/25">
+            <svg
+              className="w-7 h-7 text-white"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <circle cx="12" cy="12" r="3" />
+              <path d="m8 3 4 8 5-3-5 7-4-8-5 3 5-7z" />
+            </svg>
+          </div>
+          <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white dark:border-gray-900 animate-pulse"></div>
+        </div>
+        <div className="ml-4">
+          <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+            Orbit MKT
+          </h1>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Marketing Suite</p>
+        </div>
       </div>
+
       <nav className="flex-1">
-        <ul className="flex flex-col h-full">
+        <div className="space-y-1">
+          <p className="px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4">
+            Main Navigation
+          </p>
+          
           <NavItem
             page="Dashboard"
             activePage={activePage}
             setActivePage={setActivePage}
-            label="Dashboard"
-            icon={<DashboardIcon />}
+            label={getPageTitle('dashboard')}
+            icon={<Home />}
+            badge="2"
           />
+          
           <NavItem
             page="Customers"
             activePage={activePage}
             setActivePage={setActivePage}
-            label="Customers"
-            icon={<CustomersIcon />}
+            label={getPageTitle('customers')}
+            icon={<Users />}
+            badge="24"
           />
+          
           <NavItem
             page="Content"
             activePage={activePage}
             setActivePage={setActivePage}
-            label="Content"
-            icon={<ContentIcon />}
+            label={getPageTitle('content')}
+            icon={<FileText />}
           />
+          
           <NavItem
             page="Calendar"
             activePage={activePage}
             setActivePage={setActivePage}
-            label="Calendar"
-            icon={<CalendarIcon />}
+            label={getPageTitle('calendar')}
+            icon={<Calendar />}
+            badge="3"
           />
+          
           <NavItem
             page="Assets"
             activePage={activePage}
             setActivePage={setActivePage}
-            label="Assets"
-            icon={<Image className="w-6 h-6" />}
+            label={getPageTitle('assets')}
+            icon={<Image />}
           />
-           <NavItem
+        </div>
+
+        <div className="mt-8 space-y-1">
+          <p className="px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4">
+            AI & Automation
+          </p>
+          
+          <NavItem
             page="AIStrategy"
             activePage={activePage}
             setActivePage={setActivePage}
-            label="Estrategia IA"
-            icon={<Brain className="w-6 h-6" />}
+            label={getPageTitle('aistrategy')}
+            icon={<Brain />}
+            badge="NEW"
           />
+          
           <NavItem
             page="Systems"
             activePage={activePage}
             setActivePage={setActivePage}
-            label="Systems"
-            icon={<Briefcase className="w-6 h-6" />}
+            label={getPageTitle('systems')}
+            icon={<Briefcase />}
           />
-          <div className="mt-auto">
-            <hr className="my-2 border-gray-200 dark:border-gray-700" />
-             <NavItem
-              page="Settings"
-              activePage={activePage}
-              setActivePage={setActivePage}
-              label="Settings"
-              icon={<SettingsIcon />}
-            />
+        </div>
+
+        <div className="mt-auto pt-6">
+          <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-xl p-4 mb-6">
+            <div className="flex items-center space-x-3">
+              <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+                <Brain className="w-4 h-4 text-white" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-900 dark:text-white">AI Credits</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">847 / 1000 remaining</p>
+              </div>
+            </div>
+            <div className="mt-3 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+              <div className="bg-gradient-to-r from-blue-500 to-purple-600 h-2 rounded-full w-4/5"></div>
+            </div>
           </div>
-        </ul>
+
+          <hr className="border-gray-200/50 dark:border-gray-700/50 mb-4" />
+          
+          <NavItem
+            page="Settings"
+            activePage={activePage}
+            setActivePage={setActivePage}
+            label={getPageTitle('settings')}
+            icon={<Settings />}
+          />
+        </div>
       </nav>
     </aside>
   );
 };
 
-
-const DashboardIcon = () => (
-    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>
-);
-const CustomersIcon = () => (
-    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
-);
-const ContentIcon = () => (
-    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
-);
-const CalendarIcon = () => (
-    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-);
-const SettingsIcon = () => (
-    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 00-1.065 2.572c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924-1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 001.065-2.572c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-    </svg>
-);
 
 export default Sidebar;

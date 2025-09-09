@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { motion } from 'framer-motion';
 // FIX: Corrected import path for types to point to the new single source of truth.
 import { Page, PostContent, ProactiveTask } from '../../types/index';
 import { useProfile } from '../../store/profileContext';
-import { useAppData } from '../../store/appDataContext';
+import { useOptimizedAppData } from '../../store/optimized/appDataContext';
 import { aiService } from '../../services/aiService';
 import StatCardGrid from '../../components/features/dashboard/StatCardGrid';
 import SalesChartWidget from '../../components/features/dashboard/SalesChartWidget';
@@ -16,6 +16,8 @@ import { WhatsNext } from '../../components/features/dashboard/WhatsNext';
 import GamificationWidget from '../../components/features/gamification/GamificationWidget';
 import LevelUpToast from '../../components/features/gamification/LevelUpToast';
 import DashboardSkeleton from '../../components/features/dashboard/DashboardSkeleton';
+// Lazy load UI showcase component
+const UIShowcase = React.lazy(() => import('../../components/features/dashboard/UIShowcase'));
 
 interface DashboardProps {
   setActivePage: (page: Page) => void;
@@ -38,7 +40,7 @@ const itemVariants = {
 };
 
 const DashboardPage: React.FC<DashboardProps> = ({ setActivePage, onNavigateWithContent }) => {
-  const { customers, specialDates } = useAppData();
+  const { customers, specialDates } = useOptimizedAppData();
   const { profile } = useProfile();
   const [proactiveTasks, setProactiveTasks] = useState<ProactiveTask[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -86,7 +88,7 @@ const DashboardPage: React.FC<DashboardProps> = ({ setActivePage, onNavigateWith
   return (
     <>
       <motion.div
-        className="space-y-8"
+        className="space-y-8 p-6 lg:p-8"
         variants={containerVariants}
         initial="hidden"
         animate="visible"
@@ -95,14 +97,16 @@ const DashboardPage: React.FC<DashboardProps> = ({ setActivePage, onNavigateWith
 
         <StatCardGrid />
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-8">
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
+          <div className="xl:col-span-8 space-y-8">
             <SalesChartWidget />
             <RecentActivity />
           </div>
-          <div className="space-y-8">
-            <WeatherWidget />
-            <GamificationWidget />
+          <div className="xl:col-span-4 space-y-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-1 gap-6">
+              <WeatherWidget />
+              <GamificationWidget />
+            </div>
             <Tasks
               tasks={proactiveTasks}
               isLoading={isLoading}
@@ -114,6 +118,21 @@ const DashboardPage: React.FC<DashboardProps> = ({ setActivePage, onNavigateWith
 
         <motion.div variants={itemVariants}>
           <WhatsNext setActivePage={setActivePage} />
+        </motion.div>
+
+        <motion.div variants={itemVariants}>
+          <Suspense fallback={
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+              <div className="animate-pulse flex space-x-4">
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 bg-gray-300 dark:bg-gray-600 rounded w-3/4"></div>
+                  <div className="h-4 bg-gray-300 dark:bg-gray-600 rounded w-1/2"></div>
+                </div>
+              </div>
+            </div>
+          }>
+            <UIShowcase />
+          </Suspense>
         </motion.div>
 
       </motion.div>

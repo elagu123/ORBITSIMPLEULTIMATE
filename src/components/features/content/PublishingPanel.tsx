@@ -4,7 +4,7 @@ import Button from '../../ui/Button';
 import Input from '../../ui/Input';
 import Label from '../../ui/Label';
 import { Clock, Sparkles } from '../../ui/Icons';
-import { useAppData } from '../../../store/appDataContext';
+import { useOptimizedAppData } from '../../../store/optimized/appDataContext';
 import { aiService } from '../../../services/aiService';
 import { useGamification } from '../../../store/gamificationContext';
 
@@ -15,7 +15,7 @@ interface PublishingPanelProps {
 }
 
 const PublishingPanel: React.FC<PublishingPanelProps> = ({ postContent, postText, isEnabled }) => {
-    const { addCalendarEvent, calendarEvents } = useAppData();
+    const { calendarEvents } = useOptimizedAppData();
     const { addXp, unlockAchievement } = useGamification();
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
     const [time, setTime] = useState('10:00');

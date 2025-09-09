@@ -1,0 +1,293 @@
+{
+  "navigation": {
+    "dashboard": "Panel",
+    "customers": "Clientes",
+    "content": "Contenido",
+    "calendar": "Calendario",
+    "assets": "Recursos",
+    "systems": "Sistemas",
+    "aistrategy": "Estrategia IA",
+    "settings": "Configuración"
+  },
+  "buttons": {
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "create": "Crear",
+    "update": "Actualizar",
+    "submit": "Enviar",
+    "close": "Cerrar",
+    "back": "Volver",
+    "next": "Siguiente",
+    "previous": "Anterior",
+    "confirm": "Confirmar",
+    "retry": "Reintentar",
+    "refresh": "Actualizar",
+    "export": "Exportar",
+    "import": "Importar",
+    "upload": "Subir",
+    "download": "Descargar",
+    "search": "Buscar",
+    "filter": "Filtrar",
+    "sort": "Ordenar",
+    "view": "Ver",
+    "copy": "Copiar",
+    "share": "Compartir"
+  },
+  "forms": {
+    "labels": {
+      "email": "Correo electrónico",
+      "password": "Contraseña",
+      "confirmPassword": "Confirmar contraseña",
+      "firstName": "Nombre",
+      "lastName": "Apellido",
+      "fullName": "Nombre completo",
+      "company": "Empresa",
+      "phone": "Teléfono",
+      "address": "Dirección",
+      "city": "Ciudad",
+      "country": "País",
+      "website": "Sitio web",
+      "notes": "Notas",
+      "tags": "Etiquetas",
+      "title": "Título",
+      "content": "Contenido",
+      "description": "Descripción",
+      "platform": "Plataforma",
+      "scheduledDate": "Fecha programada",
+      "targetAudience": "Audiencia objetivo",
+      "businessName": "Nombre del negocio",
+      "industry": "Industria"
+    },
+    "placeholders": {
+      "enterEmail": "Ingresa tu correo electrónico",
+      "enterPassword": "Ingresa tu contraseña",
+      "confirmPassword": "Confirma tu contraseña",
+      "enterName": "Ingresa tu nombre",
+      "enterCompany": "Nombre de la empresa",
+      "enterPhone": "Número de teléfono",
+      "enterWebsite": "https://ejemplo.com",
+      "addNotes": "Agregar notas...",
+      "searchCustomers": "Buscar clientes...",
+      "contentTitle": "Título del contenido",
+      "contentDescription": "Descripción del contenido..."
+    },
+    "validation": {
+      "required": "Este campo es requerido",
+      "email": "Por favor ingresa un email válido",
+      "password": "La contraseña debe tener al menos 6 caracteres",
+      "passwordMatch": "Las contraseñas no coinciden",
+      "phone": "Formato de teléfono no válido",
+      "url": "URL no válida",
+      "maxLength": "Máximo {{max}} caracteres",
+      "minLength": "Mínimo {{min}} caracteres",
+      "invalidFormat": "Formato no válido"
+    }
+  },
+  "messages": {
+    "success": {
+      "loginSuccess": "Inicio de sesión exitoso",
+      "logoutSuccess": "Sesión cerrada exitosamente",
+      "registerSuccess": "Registro exitoso. ¡Bienvenido!",
+      "customerCreated": "Cliente creado exitosamente",
+      "customerUpdated": "Cliente actualizado exitosamente",
+      "customerDeleted": "Cliente eliminado exitosamente",
+      "contentCreated": "Contenido creado exitosamente",
+      "contentScheduled": "Contenido programado exitosamente",
+      "changesSaved": "Cambios guardados exitosamente",
+      "emailSent": "Email enviado exitosamente",
+      "dataExported": "Datos exportados exitosamente",
+      "settingsUpdated": "Configuración actualizada"
+    },
+    "errors": {
+      "networkError": "Error de conexión. Verifica tu internet.",
+      "serverError": "Error del servidor. Intenta nuevamente.",
+      "timeout": "La solicitud tardó demasiado. Intenta nuevamente.",
+      "invalidCredentials": "Credenciales inválidas",
+      "sessionExpired": "Sesión expirada. Inicia sesión nuevamente.",
+      "unauthorized": "No tienes permisos para esta acción",
+      "notFound": "Recurso no encontrado",
+      "unexpected": "Error inesperado. Intenta nuevamente.",
+      "rateLimited": "Demasiados intentos. Espera un momento.",
+      "fileTooBig": "El archivo es demasiado grande",
+      "unsupportedFile": "Formato de archivo no soportado"
+    }
+  },
+  "dashboard": {
+    "title": "Panel de Control",
+    "welcome": "Bienvenido a Orbit Marketing",
+    "metrics": {
+      "totalCustomers": "Total de Clientes",
+      "activeCustomers": "Clientes Activos",
+      "newCustomers": "Clientes Nuevos",
+      "revenue": "Ingresos",
+      "growth": "Crecimiento",
+      "performance": "Rendimiento",
+      "conversions": "Conversiones",
+      "campaigns": "Campañas"
+    },
+    "periods": {
+      "today": "Hoy",
+      "yesterday": "Ayer",
+      "thisWeek": "Esta Semana",
+      "lastWeek": "Semana Pasada",
+      "thisMonth": "Este Mes",
+      "lastMonth": "Mes Anterior",
+      "thisYear": "Este Año",
+      "lastYear": "Año Anterior"
+    },
+    "recentActivity": "Actividad Reciente",
+    "quickActions": "Acciones Rápidas"
+  },
+  "customers": {
+    "title": "Gestión de Clientes",
+    "addCustomer": "Agregar Cliente",
+    "editCustomer": "Editar Cliente",
+    "customerDetails": "Detalles del Cliente",
+    "customerList": "Lista de Clientes",
+    "searchPlaceholder": "Buscar clientes...",
+    "filters": {
+      "all": "Todos",
+      "active": "Activos",
+      "inactive": "Inactivos",
+      "new": "Nuevos",
+      "vip": "VIP"
+    },
+    "status": {
+      "active": "Activo",
+      "inactive": "Inactivo",
+      "pending": "Pendiente",
+      "blocked": "Bloqueado"
+    },
+    "actions": {
+      "contact": "Contactar",
+      "viewProfile": "Ver Perfil",
+      "editProfile": "Editar Perfil",
+      "deleteCustomer": "Eliminar Cliente"
+    }
+  },
+  "content": {
+    "title": "Generación de Contenido",
+    "createContent": "Crear Contenido",
+    "editContent": "Editar Contenido",
+    "contentLibrary": "Biblioteca de Contenido",
+    "generateWithAI": "Generar con IA",
+    "platforms": {
+      "facebook": "Facebook",
+      "instagram": "Instagram",
+      "twitter": "Twitter",
+      "linkedin": "LinkedIn",
+      "youtube": "YouTube",
+      "tiktok": "TikTok"
+    },
+    "contentTypes": {
+      "post": "Publicación",
+      "story": "Historia",
+      "reel": "Reel",
+      "video": "Video",
+      "image": "Imagen",
+      "carousel": "Carrusel"
+    },
+    "status": {
+      "draft": "Borrador",
+      "scheduled": "Programado",
+      "published": "Publicado",
+      "archived": "Archivado"
+    }
+  },
+  "calendar": {
+    "title": "Calendario de Marketing",
+    "addEvent": "Agregar Evento",
+    "editEvent": "Editar Evento",
+    "eventDetails": "Detalles del Evento",
+    "views": {
+      "month": "Mes",
+      "week": "Semana",
+      "day": "Día",
+      "agenda": "Agenda"
+    },
+    "eventTypes": {
+      "campaign": "Campaña",
+      "post": "Publicación",
+      "meeting": "Reunión",
+      "deadline": "Fecha límite",
+      "launch": "Lanzamiento"
+    }
+  },
+  "settings": {
+    "title": "Configuración",
+    "profile": "Perfil",
+    "account": "Cuenta",
+    "notifications": "Notificaciones",
+    "security": "Seguridad",
+    "integrations": "Integraciones",
+    "billing": "Facturación",
+    "team": "Equipo",
+    "advanced": "Avanzado",
+    "language": "Idioma",
+    "timezone": "Zona Horaria",
+    "theme": "Tema",
+    "darkMode": "Modo Oscuro",
+    "lightMode": "Modo Claro"
+  },
+  "auth": {
+    "login": "Iniciar Sesión",
+    "logout": "Cerrar Sesión",
+    "register": "Registrarse",
+    "forgotPassword": "¿Olvidaste tu contraseña?",
+    "resetPassword": "Restablecer Contraseña",
+    "rememberMe": "Recordarme",
+    "alreadyHaveAccount": "¿Ya tienes una cuenta?",
+    "noAccount": "¿No tienes cuenta?",
+    "createAccount": "Crear Cuenta",
+    "backToLogin": "Volver al Login",
+    "welcomeBack": "Bienvenido de Vuelta",
+    "joinOrbit": "Únete a Orbit MKT",
+    "signInMessage": "Inicia sesión en tu centro de comando de marketing",
+    "createAccountMessage": "Crea tu cuenta para comenzar",
+    "demoEmailHelp": "Usa demo@orbit.com para acceso demo",
+    "demoPasswordHelp": "Usa 'password' para acceso demo",
+    "quickDemo": "Acceso Demo Rápido",
+    "creatingAccount": "Creando cuenta..."
+  },
+  "common": {
+    "loading": "Cargando...",
+    "noData": "No hay datos disponibles",
+    "error": "Error",
+    "success": "Éxito",
+    "warning": "Advertencia",
+    "info": "Información",
+    "yes": "Sí",
+    "no": "No",
+    "ok": "OK",
+    "total": "Total",
+    "showing": "Mostrando",
+    "of": "de",
+    "results": "resultados",
+    "page": "Página",
+    "perPage": "por página",
+    "selectAll": "Seleccionar todo",
+    "deselectAll": "Deseleccionar todo",
+    "actions": "Acciones",
+    "moreOptions": "Más opciones",
+    "notifications": "Notificaciones"
+  },
+  "time": {
+    "now": "Ahora",
+    "today": "Hoy",
+    "yesterday": "Ayer",
+    "tomorrow": "Mañana",
+    "thisWeek": "Esta semana",
+    "nextWeek": "Próxima semana",
+    "thisMonth": "Este mes",
+    "nextMonth": "Próximo mes",
+    "ago": "hace",
+    "minutes": "minutos",
+    "hours": "horas",
+    "days": "días",
+    "weeks": "semanas",
+    "months": "meses",
+    "years": "años"
+  }
+}

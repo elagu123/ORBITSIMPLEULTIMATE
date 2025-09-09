@@ -1,19 +1,21 @@
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 // FIX: Corrected import path for types to point to the new single source of truth.
 import { EnhancedCustomer, CustomerFormData, TimelineEvent, Page, PostContent, AIRecommendedAction } from '../../types/index';
-import { useAppData } from '../../store/appDataContext';
-import { useAI } from '../../store/aiContext';
+import { useOptimizedAppData } from '../../store/optimized/appDataContext';
+import { useOptimizedAI } from '../../store/optimized/aiContext';
 import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
 import CustomerForm from '../../components/features/customers/CustomerForm';
 import ContextualAITrigger from '../../components/features/ai/ContextualAITrigger';
 import Badge from '../../components/ui/Badge';
 import { useGamification } from '../../store/gamificationContext';
-import { Crown, Heart, AlertTriangle, XCircle, Sparkles as NewIcon, Cake, Lightbulb, ChevronLeft, Users } from '../../components/ui/Icons';
+import { Crown, Heart, AlertTriangle, XCircle, Sparkles as NewIcon, Cake, Lightbulb, ChevronLeft, Users, BarChart3 } from '../../components/ui/Icons';
 import CustomerTimeline from '../../components/features/customers/CustomerTimeline';
 import CustomerDetailSidebar from '../../components/features/customers/CustomerDetailSidebar';
 import CustomerDetailActions from '../../components/features/customers/CustomerDetailActions';
+// Lazy load heavy analytics component
+const AdvancedCustomerAnalytics = React.lazy(() => import('../../components/features/customers/AdvancedCustomerAnalytics'));
 import { aiService } from '../../services/aiService';
 import { useProfile } from '../../store/profileContext';
 
@@ -36,12 +38,12 @@ interface CustomersPageProps {
 }
 
 const CustomersPage: React.FC<CustomersPageProps> = ({ onNavigateWithContent }) => {
-  const { customers, setCustomers, addNoteToCustomer } = useAppData();
-  const { setAppContext } = useAI();
+  const { customers, updateCustomer, addTimelineEvent, addCustomer } = useOptimizedAppData();
+  const { setAppContext } = useOptimizedAI();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { addXp, unlockAchievement } = useGamification();
 
-  const [view, setView] = useState<'segments' | 'list' | 'detail'>('segments');
+  const [view, setView] = useState<'segments' | 'list' | 'detail' | 'analytics'>('segments');
   const [activeSegment, setActiveSegment] = useState<SegmentCardProps | null>(null);
   const [activeCustomer, setActiveCustomer] = useState<EnhancedCustomer | null>(null);
   
@@ -78,12 +80,17 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ onNavigateWithContent }) 
     } else if (view === 'list') {
       setView('segments');
       setActiveSegment(null);
+    } else if (view === 'analytics') {
+      setView('segments');
     }
   }, [view, setAppContext]);
 
+  const handleViewAnalytics = useCallback(() => {
+    setView('analytics');
+  }, []);
+
   const handleAddCustomer = useCallback((newCustomerData: CustomerFormData) => {
-    const newCustomer: EnhancedCustomer = {
-      id: `CUST-${String(customers.length + 1).padStart(3, '0')}`,
+    const newCustomerToAdd = {
       avatar: `https://randomuser.me/api/portraits/${Math.random() > 0.5 ? 'men' : 'women'}/${Math.floor(Math.random() * 99)}.jpg`,
       ...newCustomerData,
       aiAnalysis: {
@@ -99,17 +106,22 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ onNavigateWithContent }) 
         details: { user: 'Admin' }
       }]
     };
-    setCustomers(prev => [newCustomer, ...prev]);
+    addCustomer(newCustomerToAdd);
     addXp(25);
     unlockAchievement('firstCustomer');
     if (customers.length + 1 >= 10) {
       unlockAchievement('customerChampion');
     }
-  }, [customers.length, setCustomers, addXp, unlockAchievement]);
+  }, [customers.length, addCustomer, addXp, unlockAchievement]);
 
   const handleAddNoteToTimeline = useCallback((customerId: string, noteText: string) => {
-    addNoteToCustomer(customerId, noteText);
-  }, [addNoteToCustomer]);
+    addTimelineEvent(customerId, {
+      type: 'note',
+      date: getDateString(),
+      description: noteText,
+      details: { user: 'Admin' }
+    });
+  }, [addTimelineEvent]);
 
   const handleOpenModal = useCallback(() => setIsModalOpen(true), []);
   const handleCloseModal = useCallback(() => setIsModalOpen(false), []);
@@ -125,9 +137,10 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ onNavigateWithContent }) 
                 variants={pageVariants}
                 transition={{ type: 'tween', ease: 'anticipate', duration: 0.3 }}
             >
-                {view === 'segments' && <SegmentsView customers={customers} onSelectSegment={handleSelectSegment} onAddCustomerClick={handleOpenModal} />}
+                {view === 'segments' && <SegmentsView customers={customers} onSelectSegment={handleSelectSegment} onAddCustomerClick={handleOpenModal} onViewAnalytics={handleViewAnalytics} />}
                 {view === 'list' && activeSegment && <CustomerListView segment={activeSegment} allCustomers={customers} onSelectCustomer={handleSelectCustomer} onBack={handleBack} onAddCustomerClick={handleOpenModal} />}
                 {view === 'detail' && activeCustomer && <CustomerDetailView customer={activeCustomer} onBack={handleBack} onAddNote={handleAddNoteToTimeline} onNavigateWithContent={onNavigateWithContent} />}
+                {view === 'analytics' && <AnalyticsView customers={customers} onBack={handleBack} />}
             </motion.div>
         </AnimatePresence>
         
@@ -139,7 +152,7 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ onNavigateWithContent }) 
 };
 
 // -- Sub-Components for Views --
-const SegmentsView: React.FC<{customers: EnhancedCustomer[], onSelectSegment: (segment: SegmentCardProps) => void, onAddCustomerClick: () => void}> = React.memo(({ customers, onSelectSegment, onAddCustomerClick }) => {
+const SegmentsView: React.FC<{customers: EnhancedCustomer[], onSelectSegment: (segment: SegmentCardProps) => void, onAddCustomerClick: () => void, onViewAnalytics: () => void}> = React.memo(({ customers, onSelectSegment, onAddCustomerClick, onViewAnalytics }) => {
     const segments = useMemo(() => {
         const now = new Date();
         const thirtyDaysAgo = new Date(); thirtyDaysAgo.setDate(now.getDate() - 30);
@@ -159,7 +172,15 @@ const SegmentsView: React.FC<{customers: EnhancedCustomer[], onSelectSegment: (s
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <h2 className="text-3xl font-bold text-gray-800 dark:text-white">Customer Segments</h2>
-                <Button onClick={onAddCustomerClick}><PlusIcon />Add Customer</Button>
+                <div className="flex items-center space-x-3">
+                    <Button onClick={onViewAnalytics} variant="outline">
+                        <BarChart3 className="w-4 h-4 mr-2" />
+                        Analytics
+                    </Button>
+                    <Button onClick={onAddCustomerClick}>
+                        <PlusIcon />Add Customer
+                    </Button>
+                </div>
             </div>
             {customers.length === 0 && <ContextualAITrigger onAddCustomerClick={onAddCustomerClick} />}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -355,6 +376,42 @@ const SegmentCard = React.memo(({ onSelect, ...props }: SegmentCardProps) => {
         </div>
     </motion.div>
   )
+});
+
+// Analytics View Component
+const AnalyticsView: React.FC<{customers: EnhancedCustomer[], onBack: () => void}> = React.memo(({ customers, onBack }) => {
+    return (
+        <div className="space-y-6">
+            <div className="flex items-center gap-4">
+                <Button onClick={onBack} variant="secondary" size="sm" className="!p-2 h-9 w-9">
+                    <ChevronLeft className="h-5 w-5"/>
+                </Button>
+                <div>
+                    <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Customer Analytics</h2>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Advanced insights and performance metrics</p>
+                </div>
+            </div>
+            
+            <Suspense fallback={
+                <div className="flex items-center justify-center p-12">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+                    <span className="ml-3 text-gray-600 dark:text-gray-400">Loading Analytics...</span>
+                </div>
+            }>
+                <AdvancedCustomerAnalytics
+                    customers={customers}
+                    onExport={(data) => {
+                        console.log('Exporting data:', data);
+                        // In a real app, this would download or send the data
+                    }}
+                    onRefresh={() => {
+                        console.log('Refreshing analytics data');
+                        // In a real app, this would refresh the data
+                    }}
+                />
+            </Suspense>
+        </div>
+    );
 });
 
 const PlusIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110 2h5V4a1 1 0 011-1z" clipRule="evenodd" /></svg>)

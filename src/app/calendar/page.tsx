@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { motion } from 'framer-motion';
-import MarketingCalendar from '../../components/features/calendar/MarketingCalendar';
+// Lazy load heavy calendar component
+const EnhancedMarketingCalendar = React.lazy(() => import('../../components/features/calendar/EnhancedMarketingCalendar'));
 import CalendarSidebar from '../../components/features/calendar/CalendarSidebar';
 import CalendarDetailPanel from '../../components/features/calendar/CalendarDetailPanel';
 import Modal from '../../components/ui/Modal';
@@ -9,7 +10,8 @@ import EventForm from '../../components/features/calendar/EventForm';
 import { CalendarEvent, Page, PostContent, CalendarViewMode, OptimalTimeSlot } from '../../types/index';
 import Button from '../../components/ui/Button';
 import { useGamification } from '../../store/gamificationContext';
-import { useAppData } from '../../store/appDataContext';
+import { useOptimizedAppData } from '../../store/optimized/appDataContext';
+import { useToastNotifications } from '../../store/toastContext';
 import Toggle from '../../components/ui/Toggle';
 import CalendarAIPanel from '../../components/features/calendar/CalendarAIPanel';
 import CalendarSkeleton from '../../components/features/calendar/CalendarSkeleton';
@@ -19,15 +21,23 @@ interface CalendarPageProps {
 }
 
 const CalendarPage: React.FC<CalendarPageProps> = ({ onNavigateWithContent }) => {
-    const { calendarEvents, setCalendarEvents, addCalendarEvent } = useAppData();
+    const { calendarEvents, setCalendarEvents } = useOptimizedAppData();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [eventToEdit, setEventToEdit] = useState<CalendarEvent | null>(null);
     const [selectedDate, setSelectedDate] = useState<Date | null>(new Date(2024, 6, 15));
     const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(calendarEvents[0]);
     const { addXp, unlockAchievement } = useGamification();
+    const { success, error } = useToastNotifications();
 
     const [viewMode, setViewMode] = useState<CalendarViewMode>('month');
     const [optimalTimes, setOptimalTimes] = useState<OptimalTimeSlot[]>([]);
+
+    // Simple function to handle calendar event addition (for demo purposes)
+    const addCalendarEvent = (event: CalendarEvent) => {
+        console.log('Adding calendar event:', event);
+        // In a real app, this would save to backend/state
+        addXp(25); // Give XP for creating events
+    };
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
@@ -78,6 +88,63 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onNavigateWithContent }) =>
         setEventToEdit(null);
     };
 
+    // Enhanced Calendar Functions
+    const handleEventDuplicate = (event: CalendarEvent) => {
+        const duplicatedEvent: CalendarEvent = {
+            ...event,
+            id: String(Date.now()),
+            title: `${event.title} (Copy)`,
+            status: 'draft'
+        };
+        setCalendarEvents(prev => [...prev, duplicatedEvent]);
+        success('Event Duplicated', `"${event.title}" has been duplicated`);
+        addXp(10);
+    };
+
+    const handleEventDelete = (eventId: string) => {
+        const eventToDelete = calendarEvents.find(e => e.id === eventId);
+        setCalendarEvents(prev => prev.filter(e => e.id !== eventId));
+        success('Event Deleted', `"${eventToDelete?.title}" has been deleted`);
+        
+        // Clear selection if deleted event was selected
+        if (selectedEvent?.id === eventId) {
+            setSelectedEvent(null);
+        }
+    };
+
+    const handleBulkAction = (action: string, eventIds: string[]) => {
+        const eventsToProcess = calendarEvents.filter(e => eventIds.includes(e.id));
+        
+        switch (action) {
+            case 'delete':
+                setCalendarEvents(prev => prev.filter(e => !eventIds.includes(e.id)));
+                if (selectedEvent && eventIds.includes(selectedEvent.id)) {
+                    setSelectedEvent(null);
+                }
+                break;
+                
+            case 'duplicate':
+                const duplicatedEvents = eventsToProcess.map(event => ({
+                    ...event,
+                    id: String(Date.now() + Math.random()),
+                    title: `${event.title} (Copy)`,
+                    status: 'draft' as const
+                }));
+                setCalendarEvents(prev => [...prev, ...duplicatedEvents]);
+                addXp(duplicatedEvents.length * 10);
+                break;
+                
+            case 'archive':
+                // In a real app, this would move events to an archived state
+                setCalendarEvents(prev => prev.map(e => 
+                    eventIds.includes(e.id) 
+                        ? { ...e, status: 'draft' as const, title: `[Archived] ${e.title}` }
+                        : e
+                ));
+                break;
+        }
+    };
+
     if (isLoading) {
         return <CalendarSkeleton />;
     }
@@ -113,14 +180,20 @@ const CalendarPage: React.FC<CalendarPageProps> = ({ onNavigateWithContent }) =>
                     <Button onClick={handleAddNew}><PlusIcon /> Schedule Post</Button>
                 </div>
                  <div className="flex-1 overflow-y-auto p-4">
-                    <MarketingCalendar 
-                        events={calendarEvents} 
-                        onEventClick={handleEventClick} 
-                        onDayClick={handleDayClick}
-                        selectedDate={selectedDate}
-                        viewMode={viewMode}
-                        optimalTimes={optimalTimes}
-                    />
+                    <Suspense fallback={<CalendarSkeleton />}>
+                        <EnhancedMarketingCalendar 
+                            events={calendarEvents} 
+                            onEventClick={handleEventClick} 
+                            onDayClick={handleDayClick}
+                            selectedDate={selectedDate}
+                            viewMode={viewMode}
+                            optimalTimes={optimalTimes}
+                            onEventUpdate={handleUpdateEvent}
+                            onEventDelete={handleEventDelete}
+                            onEventDuplicate={handleEventDuplicate}
+                            onBulkAction={handleBulkAction}
+                        />
+                    </Suspense>
                 </div>
             </motion.div>
 

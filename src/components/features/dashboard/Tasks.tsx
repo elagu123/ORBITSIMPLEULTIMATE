@@ -8,7 +8,7 @@ import { aiService } from '../../../services/aiService';
 import { TEMPLATES } from '../content/TemplateSelector';
 import Button from '../../ui/Button';
 import { AlertTriangle, Cake, Sparkles, CheckCircle } from '../../ui/Icons';
-import { useAppData } from '../../../store/appDataContext';
+import { useOptimizedAppData } from '../../../store/optimized/appDataContext';
 
 const itemVariants = {
   hidden: { y: 20, opacity: 0 },
@@ -31,7 +31,7 @@ const taskIcons: Record<ProactiveTask['type'], React.ElementType> = {
 const Tasks: React.FC<TasksProps> = ({ tasks, isLoading, onNavigateWithContent, onUpdateTasks }) => {
   const { addXp, unlockAchievement } = useGamification();
   const { profile } = useProfile();
-  const { customers } = useAppData();
+  const { customers } = useOptimizedAppData();
   const [isActionLoading, setIsActionLoading] = useState<string | null>(null);
 
   const handleDismiss = (id: string) => {

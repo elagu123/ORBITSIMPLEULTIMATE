@@ -1,16 +1,19 @@
 import React from 'react';
-import { useAuth } from './store/authContext';
+import { useOptimizedAuth } from './store/optimized/authContext';
 import LoginPage from './app/(auth)/login/page';
 import MainLayout from './app/layout';
-import ErrorBoundary from './components/ui/ErrorBoundary';
+import { ErrorDashboard } from './components/ui/ErrorBoundaries';
+import { LanguageProvider } from './store/languageContext';
+import './i18n/config'; // Initialize i18n
 
 const App: React.FC = () => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated } = useOptimizedAuth();
 
   return (
-    <ErrorBoundary>
+    <LanguageProvider>
       {isAuthenticated ? <MainLayout /> : <LoginPage />}
-    </ErrorBoundary>
+      <ErrorDashboard />
+    </LanguageProvider>
   );
 };
 

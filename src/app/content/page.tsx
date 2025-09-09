@@ -1,4 +1,5 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, Suspense } from 'react';
+import { ComponentErrorBoundary } from '../../components/ui/ErrorBoundaries';
 import { motion } from 'framer-motion';
 // FIX: Corrected import path for types to point to the new single source of truth.
 import { ContentTemplate, PostContent, PromptAnalysis } from '../../types/index';
@@ -11,6 +12,8 @@ import { useGamification } from '../../store/gamificationContext';
 import PublishingPanel from '../../components/features/content/PublishingPanel';
 import ContentVariationsModal from '../../components/features/content/ContentVariationsModal';
 import PromptEnhancementModal from '../../components/features/content/PromptEnhancementModal';
+// Lazy load heavy components for better performance
+const AdvancedContentGenerator = React.lazy(() => import('../../components/features/content/AdvancedContentGenerator'));
 import { aiService } from '../../services/aiService';
 import { useProfile } from '../../store/profileContext';
 
@@ -167,9 +170,45 @@ const ContentPage: React.FC<ContentPageProps> = ({ prefilledContent, clearPrefil
                     initial={{ x: -50, opacity: 0 }}
                     animate={{ x: 0, opacity: 1 }}
                     transition={{ duration: 0.3 }}
-                    className="w-full lg:w-80 bg-white dark:bg-gray-800 rounded-lg shadow-md flex-shrink-0 overflow-y-auto"
+                    className="w-full lg:w-80 bg-white dark:bg-gray-800 rounded-lg shadow-md flex-shrink-0 overflow-y-auto space-y-4"
                 >
                     <TemplateSelector onSelect={handleSelectTemplate} selectedTemplateId={selectedTemplate?.id} />
+                    
+                    <div className="p-4">
+                        <ComponentErrorBoundary name="advanced-content-generator">
+                            <Suspense fallback={
+                                <div className="flex items-center justify-center p-8">
+                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                                    <span className="ml-2 text-gray-600 dark:text-gray-400">Loading AI Generator...</span>
+                                </div>
+                            }>
+                                <AdvancedContentGenerator
+                                templates={TEMPLATES}
+                                onContentGenerated={(content) => {
+                                    // Apply generated content to current template
+                                    if (selectedTemplate) {
+                                        const newStructure = Object.keys(selectedTemplate.structure).reduce((acc, key) => ({
+                                            ...acc,
+                                            [key]: content.content
+                                        }), {});
+                                        
+                                        setPostContent({
+                                            structure: newStructure,
+                                            variables: {},
+                                        });
+                                        setPostHtml(Object.keys(newStructure).reduce((acc, key) => ({
+                                            ...acc,
+                                            [key]: `<p>${content.content}</p>`
+                                        }), {}));
+                                        
+                                        addXp(20);
+                                        unlockAchievement('firstContent');
+                                    }
+                                }}
+                            />
+                            </Suspense>
+                        </ComponentErrorBoundary>
+                    </div>
                 </motion.div>
 
                 {/* Center Panel - Canvas / Editor */}

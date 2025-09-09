@@ -3,7 +3,7 @@ import { OptimalTimeSlot, ContentGapSuggestion, CalendarContentSuggestion, Calen
 import Button from '../../ui/Button';
 import { Sparkles, Lightbulb, Clock } from '../../ui/Icons';
 import { aiService } from '../../../services/aiService';
-import { useAppData } from '../../../store/appDataContext';
+import { useOptimizedAppData } from '../../../store/optimized/appDataContext';
 import { useProfile } from '../../../store/profileContext';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -14,7 +14,7 @@ interface CalendarAIPanelProps {
 }
 
 const CalendarAIPanel: React.FC<CalendarAIPanelProps> = ({ onSuggestions, onAddDraft, optimalTimes }) => {
-    const { calendarEvents, specialDates } = useAppData();
+    const { calendarEvents, specialDates } = useOptimizedAppData();
     const { profile } = useProfile();
     const [isLoadingTimes, setIsLoadingTimes] = useState(false);
     const [isLoadingGaps, setIsLoadingGaps] = useState(false);

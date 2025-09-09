@@ -3,7 +3,7 @@ import { SpecialDate, PostContent, Page } from '../../../types/index';
 import { Flag, Sparkles } from '../../ui/Icons';
 import { aiService } from '../../../services/aiService';
 import { useProfile } from '../../../store/profileContext';
-import { useAppData } from '../../../store/appDataContext';
+import { useOptimizedAppData } from '../../../store/optimized/appDataContext';
 import { TEMPLATES } from '../content/TemplateSelector';
 
 interface CalendarSidebarProps {
@@ -36,7 +36,7 @@ const MiniCalendar: React.FC = () => {
 
 const CalendarSidebar: React.FC<CalendarSidebarProps> = ({ onNavigateWithContent }) => {
     const { profile } = useProfile();
-    const { specialDates } = useAppData();
+    const { specialDates } = useOptimizedAppData();
     const [isLoading, setIsLoading] = useState<string | null>(null);
 
     const handleSpecialDateClick = async (date: SpecialDate) => {

@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Asset } from '../../types/index';
-import { useAppData } from '../../store/appDataContext';
+import { useOptimizedAppData } from '../../store/optimized/appDataContext';
 import AssetDetailPanel from '../../components/features/assets/AssetDetailPanel';
 import VisualEditor from '../../components/features/assets/VisualEditor';
 import { Layers, Grid, List, Command, UploadCloud } from '../../components/ui/Icons';
@@ -14,13 +14,27 @@ import Button from '../../components/ui/Button';
 type ViewMode = 'grid' | 'list';
 
 const AssetsPage: React.FC = () => {
-    const { assets, updateAsset, deleteAsset } = useAppData();
+    const { assets } = useOptimizedAppData();
     const [selectedAssetId, setSelectedAssetId] = useState<string | null>(assets.length > 0 ? assets[0].id : null);
     const [view, setView] = useState<'browsing' | 'editing'>('browsing');
     const [viewMode, setViewMode] = useState<ViewMode>('grid');
     const [isCommandPaletteOpen, setCommandPaletteOpen] = useState(false);
 
     const selectedAsset = useMemo(() => assets.find(a => a.id === selectedAssetId), [assets, selectedAssetId]);
+
+    // Placeholder functions for asset management (demo mode)
+    const updateAsset = (updatedAsset: Asset) => {
+        console.log('Updating asset:', updatedAsset);
+        // In a real app, this would update backend/state
+    };
+
+    const deleteAsset = (assetId: string) => {
+        console.log('Deleting asset:', assetId);
+        // In a real app, this would delete from backend/state
+        if (selectedAssetId === assetId) {
+            setSelectedAssetId(null);
+        }
+    };
 
     const handleSelectAsset = (asset: Asset) => {
         setSelectedAssetId(asset.id);

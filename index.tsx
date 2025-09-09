@@ -1,11 +1,11 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './src/App';
-import { AuthProvider } from './src/store/authContext';
-import { ProfileProvider } from './src/store/profileContext';
-import { AppDataProvider } from './src/store/appDataContext';
-import { AIProvider } from './src/store/aiContext';
-import { GamificationProvider } from './src/store/gamificationContext';
+import { CombinedProvider } from './src/store/optimized/CombinedProvider';
+import { initSentry } from './src/services/sentry';
+
+// Initialize Sentry error tracking
+initSentry();
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -15,16 +15,8 @@ if (!rootElement) {
 const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
-    <AuthProvider>
-      <ProfileProvider>
-        <AppDataProvider>
-          <AIProvider>
-            <GamificationProvider>
-              <App />
-            </GamificationProvider>
-          </AIProvider>
-        </AppDataProvider>
-      </ProfileProvider>
-    </AuthProvider>
+    <CombinedProvider>
+      <App />
+    </CombinedProvider>
   </React.StrictMode>
 );
