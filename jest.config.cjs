@@ -5,6 +5,17 @@ module.exports = {
   // Setup files
   setupFilesAfterEnv: ['<rootDir>/src/tests/setupTests.ts'],
 
+  // Globals for Vite compatibility
+  globals: {
+    'import.meta': {
+      env: {
+        VITE_BACKEND_URL: 'http://localhost:3001',
+        VITE_API_URL: 'http://localhost:3001',
+        NODE_ENV: 'test'
+      }
+    }
+  },
+
   // Module file extensions
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json'],
 

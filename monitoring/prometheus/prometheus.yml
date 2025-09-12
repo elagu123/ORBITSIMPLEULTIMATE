@@ -1,0 +1,208 @@
+# Prometheus Configuration for Orbit MKT
+# Comprehensive monitoring setup with business and technical metrics
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'orbit-mkt-production'
+    environment: 'production'
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager.monitoring.svc.cluster.local:9093
+      path_prefix: /
+      scheme: http
+      timeout: 10s
+
+# Load rules once and periodically evaluate them
+rule_files:
+  - "rules/*.yml"
+
+# Scrape configurations
+scrape_configs:
+  # Application metrics
+  - job_name: 'orbit-mkt-app'
+    kubernetes_sd_configs:
+      - role: pod
+        namespaces:
+          names: ['orbit-mkt', 'orbit-mkt-staging']
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+        action: keep
+        regex: true
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+        action: replace
+        target_label: __metrics_path__
+        regex: (.+)
+      - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+        action: replace
+        regex: ([^:]+)(?::\d+)?;(\d+)
+        replacement: $1:$2
+        target_label: __address__
+      - action: labelmap
+        regex: __meta_kubernetes_pod_label_(.+)
+      - source_labels: [__meta_kubernetes_namespace]
+        action: replace
+        target_label: namespace
+      - source_labels: [__meta_kubernetes_pod_name]
+        action: replace
+        target_label: pod
+      - source_labels: [__meta_kubernetes_service_name]
+        action: replace
+        target_label: service
+    scrape_interval: 15s
+    scrape_timeout: 10s
+
+  # Node Exporter for system metrics
+  - job_name: 'node-exporter'
+    kubernetes_sd_configs:
+      - role: node
+    relabel_configs:
+      - action: labelmap
+        regex: __meta_kubernetes_node_label_(.+)
+      - target_label: __address__
+        replacement: kubernetes.default.svc:443
+      - source_labels: [__meta_kubernetes_node_name]
+        regex: (.+)
+        target_label: __metrics_path__
+        replacement: /api/v1/nodes/${1}/proxy/metrics
+    scrape_interval: 30s
+
+  # Kubernetes API Server
+  - job_name: 'kubernetes-apiservers'
+    kubernetes_sd_configs:
+      - role: endpoints
+    scheme: https
+    tls_config:
+      ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+    bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+        action: keep
+        regex: default;kubernetes;https
+
+  # Kubernetes kubelet
+  - job_name: 'kubernetes-nodes'
+    scheme: https
+    tls_config:
+      ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+    bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+    kubernetes_sd_configs:
+      - role: node
+    relabel_configs:
+      - action: labelmap
+        regex: __meta_kubernetes_node_label_(.+)
+      - target_label: __address__
+        replacement: kubernetes.default.svc:443
+      - source_labels: [__meta_kubernetes_node_name]
+        regex: (.+)
+        target_label: __metrics_path__
+        replacement: /api/v1/nodes/${1}/proxy/metrics
+
+  # cAdvisor for container metrics
+  - job_name: 'kubernetes-cadvisor'
+    scheme: https
+    tls_config:
+      ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+    bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+    kubernetes_sd_configs:
+      - role: node
+    relabel_configs:
+      - action: labelmap
+        regex: __meta_kubernetes_node_label_(.+)
+      - target_label: __address__
+        replacement: kubernetes.default.svc:443
+      - source_labels: [__meta_kubernetes_node_name]
+        regex: (.+)
+        target_label: __metrics_path__
+        replacement: /api/v1/nodes/${1}/proxy/metrics/cadvisor
+
+  # PostgreSQL metrics
+  - job_name: 'postgres-exporter'
+    static_configs:
+      - targets: ['postgres-exporter.monitoring.svc.cluster.local:9187']
+    scrape_interval: 30s
+
+  # Redis metrics
+  - job_name: 'redis-exporter'
+    static_configs:
+      - targets: ['redis-exporter.monitoring.svc.cluster.local:9121']
+    scrape_interval: 30s
+
+  # Nginx Ingress Controller
+  - job_name: 'nginx-ingress'
+    kubernetes_sd_configs:
+      - role: pod
+        namespaces:
+          names: ['ingress-nginx']
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+        action: keep
+        regex: true
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_port]
+        action: replace
+        target_label: __address__
+        regex: (.+)
+        replacement: __address__:$1
+
+  # Istio Service Mesh metrics (if using Istio)
+  - job_name: 'istio-mesh'
+    kubernetes_sd_configs:
+      - role: endpoints
+        namespaces:
+          names: ['istio-system']
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+        action: keep
+        regex: istio-telemetry;prometheus
+
+  # Custom business metrics
+  - job_name: 'orbit-business-metrics'
+    static_configs:
+      - targets: ['orbit-mkt-service.orbit-mkt.svc.cluster.local:3000']
+    metrics_path: /metrics/business
+    scrape_interval: 30s
+    scrape_timeout: 10s
+
+  # External monitoring (uptime checks)
+  - job_name: 'blackbox-exporter'
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+        - https://orbit.com
+        - https://orbit.com/health
+        - https://api.orbit.com/health
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter.monitoring.svc.cluster.local:9115
+
+  # SSL certificate monitoring
+  - job_name: 'ssl-exporter'
+    static_configs:
+      - targets: ['ssl-exporter.monitoring.svc.cluster.local:9219']
+    params:
+      target: ['orbit.com:443']
+
+# Remote write for long-term storage (optional)
+# remote_write:
+#   - url: "https://prometheus-remote-write-endpoint/write"
+#     basic_auth:
+#       username: "username"
+#       password: "password"
+
+# Storage configuration
+storage:
+  tsdb:
+    retention.time: 30d
+    retention.size: 50GB
+    path: /prometheus/data

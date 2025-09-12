@@ -13,18 +13,22 @@ import { PWAInstallBanner, PWAUpdateNotification, NetworkStatus } from '../compo
 import PerformanceDebugger from '../components/debug/PerformanceDebugger';
 import { useRenderPerformance } from '../hooks/usePerformanceMonitoring';
 
-// Lazy load heavy components
-const OnboardingWizard = React.lazy(() => import('../components/features/onboarding/OnboardingWizard'));
+// Import optimized lazy components
+import {
+  LazyDashboard,
+  LazyCustomers,
+  LazyContent,
+  LazyCalendar,
+  LazySettings,
+  LazySystems,
+  LazyAIStrategy,
+  LazyEnhancedOnboardingWizard,
+  preloadComponents,
+  intelligentPreload
+} from '../components/utils/LazyComponents';
 
-// Lazy load all page components to reduce initial bundle size
-const DashboardPage = React.lazy(() => import('./dashboard/page'));
-const CustomersPage = React.lazy(() => import('./customers/page'));
-const ContentPage = React.lazy(() => import('./content/page'));
-const CalendarPage = React.lazy(() => import('./calendar/page'));
-const SettingsPage = React.lazy(() => import('./settings/page'));
+// Legacy lazy components for assets (not yet migrated)
 const AssetsPage = React.lazy(() => import('./assets/page'));
-const SystemsPage = React.lazy(() => import('./systems/page'));
-const AIStrategyPage = React.lazy(() => import('./aistrategy/page'));
 
 const MainLayout: React.FC = () => {
   const [activePage, setActivePage] = useState<Page>('Systems');
@@ -35,6 +39,12 @@ const MainLayout: React.FC = () => {
   
   // Performance monitoring for main layout
   useRenderPerformance('MainLayout');
+
+  // Intelligent preloading for better performance
+  useEffect(() => {
+    // Start intelligent preloading after component mounts
+    intelligentPreload();
+  }, []);
 
   // Track page views when active page changes
   usePageView(activePage, {
@@ -86,23 +96,23 @@ const MainLayout: React.FC = () => {
     const content = (() => {
       switch (activePage) {
         case 'Dashboard':
-          return <DashboardPage setActivePage={handlePageChange} onNavigateWithContent={handleNavigateWithContent} />;
+          return <LazyDashboard setActivePage={handlePageChange} onNavigateWithContent={handleNavigateWithContent} />;
         case 'Customers':
-          return <CustomersPage onNavigateWithContent={handleNavigateWithContent} />;
+          return <LazyCustomers onNavigateWithContent={handleNavigateWithContent} />;
         case 'Content':
-          return <ContentPage prefilledContent={prefilledContent} clearPrefilledContent={clearPrefilledContent} />;
+          return <LazyContent prefilledContent={prefilledContent} clearPrefilledContent={clearPrefilledContent} />;
         case 'Calendar':
-          return <CalendarPage onNavigateWithContent={handleNavigateWithContent} />;
+          return <LazyCalendar onNavigateWithContent={handleNavigateWithContent} />;
         case 'Assets':
-          return <AssetsPage />;
+          return <AssetsPage />; // Legacy - not yet migrated
         case 'Systems':
-          return <SystemsPage />;
+          return <LazySystems />;
         case 'AIStrategy':
-          return <AIStrategyPage />;
+          return <LazyAIStrategy />;
         case 'Settings':
-          return <SettingsPage />;
+          return <LazySettings />;
         default:
-          return <DashboardPage setActivePage={handlePageChange} onNavigateWithContent={handleNavigateWithContent}/>;
+          return <LazyDashboard setActivePage={handlePageChange} onNavigateWithContent={handleNavigateWithContent}/>;
       }
     })();
 

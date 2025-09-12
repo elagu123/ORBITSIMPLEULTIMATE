@@ -4,6 +4,35 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Orbit Simple MKT</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="alternate icon" href="/favicon.ico" />
+    
+    <!-- Performance optimizations -->
+    <link rel="preconnect" href="https://cdn.tailwindcss.com" />
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" />
+    <link rel="preconnect" href="https://esm.sh" />
+    <link rel="dns-prefetch" href="https://aistudiocdn.com" />
+    
+    <!-- Import map MUST come first -->
+    <script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@18.2.0",
+    "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+    "@google/genai": "https://esm.sh/@google/genai",
+    "framer-motion": "https://esm.sh/framer-motion@10.12.18",
+    "lucide-react": "https://esm.sh/lucide-react@0.294.0",
+    "recharts": "https://esm.sh/recharts@2.12.7",
+    "reactflow": "https://esm.sh/reactflow@11.11.4",
+    "react/": "https://aistudiocdn.com/react@^19.1.1/",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.1.1/"
+  }
+}
+</script>
+    
+    <!-- Preload critical resources -->
+    <link rel="prefetch" href="/src/app/dashboard/page.tsx" />
+    <link rel="prefetch" href="/src/app/content/page.tsx" />
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reactflow@11.11.4/dist/style.css" />
     <script>
@@ -60,23 +89,8 @@
       }
 
     </style>
-  <script src="https://unpkg.com/@babel/standalone@7.24.7/babel.min.js"></script>
-  <script type="importmap">
-{
-  "imports": {
-    "react": "https://esm.sh/react@18.2.0",
-    "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
-    "@google/genai": "https://esm.sh/@google/genai",
-    "framer-motion": "https://esm.sh/framer-motion@10.12.18",
-    "lucide-react": "https://esm.sh/lucide-react@0.294.0",
-    "recharts": "https://esm.sh/recharts@2.12.7",
-    "reactflow": "https://esm.sh/reactflow@11.11.4",
-    "react/": "https://aistudiocdn.com/react@^19.1.1/",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.1.1/"
-  }
-}
-</script>
-<link rel="stylesheet" href="/index.css">
+    <script src="https://unpkg.com/@babel/standalone@7.24.7/babel.min.js"></script>
+    <link rel="stylesheet" href="/index.css">
 </head>
   <body class="bg-gray-100 dark:bg-gray-900">
     <div id="root"></div>

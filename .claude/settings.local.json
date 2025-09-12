@@ -20,7 +20,13 @@
       "Bash(taskkill:*)",
       "Bash(set PORT=3002)",
       "Bash(npm start)",
-      "Bash(timeout 5s npm start)"
+      "Bash(timeout 5s npm start)",
+      "Bash(timeout:*)",
+      "Bash(npm run test:*)",
+      "Bash(rm:*)",
+      "Bash(cat:*)",
+      "Bash(node:*)",
+      "Bash(npx tailwindcss init:*)"
     ],
     "deny": [],
     "ask": []

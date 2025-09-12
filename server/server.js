@@ -8,33 +8,92 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Security Headers - Configure Helmet
+// Security Headers - Enhanced Configuration
+const isProduction = process.env.NODE_ENV === 'production';
+
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.tailwindcss.com", "https://unpkg.com"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.tailwindcss.com", "https://cdn.jsdelivr.net"],
+      scriptSrc: isProduction 
+        ? ["'self'"] 
+        : ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.tailwindcss.com", "https://unpkg.com"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.tailwindcss.com", "https://cdn.jsdelivr.net", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "data:", "https://fonts.gstatic.com"],
-      imgSrc: ["'self'", "data:", "blob:", "https:", "http:"],
-      connectSrc: ["'self'", "https://api.openai.com", "https://api.anthropic.com", "https://generativelanguage.googleapis.com"],
+      imgSrc: ["'self'", "data:", "blob:", "https:", isProduction ? "" : "http:"].filter(Boolean),
+      connectSrc: ["'self'", "https://generativelanguage.googleapis.com", "https://api.anthropic.com", "https://firebase.googleapis.com"],
       mediaSrc: ["'self'", "blob:", "data:"],
       objectSrc: ["'none'"],
       frameAncestors: ["'none'"],
       baseUri: ["'self'"],
       formAction: ["'self'"],
+      workerSrc: ["'self'", "blob:"],
+      manifestSrc: ["'self'"],
+      ...(isProduction && { upgradeInsecureRequests: [] }),
     },
   },
-  crossOriginEmbedderPolicy: false, // Disabled for development
-  hsts: {
-    maxAge: 31536000,
+  crossOriginEmbedderPolicy: false, // Required for some external resources
+  crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" },
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  hsts: isProduction ? {
+    maxAge: 31536000, // 1 year
     includeSubDomains: true,
     preload: true
-  },
+  } : false,
   noSniff: true,
   xssFilter: true,
-  referrerPolicy: { policy: "strict-origin-when-cross-origin" }
+  referrerPolicy: { policy: "strict-origin-when-cross-origin" },
+  hidePoweredBy: true,
+  permittedCrossDomainPolicies: false,
+  dnsPrefetchControl: { allow: false },
+  expectCt: isProduction ? {
+    maxAge: 86400,
+    enforce: true
+  } : false
 }));
+
+// Additional security middleware
+app.use((req, res, next) => {
+  // Prevent clickjacking
+  res.setHeader('X-Frame-Options', 'DENY');
+  
+  // Prevent MIME type sniffing
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  
+  // Enable XSS protection
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  
+  // Strict transport security for HTTPS
+  if (isProduction) {
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
+  }
+  
+  // Prevent referrer leakage
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  
+  // Permissions policy for privacy
+  res.setHeader('Permissions-Policy', 
+    'accelerometer=(), ambient-light-sensor=(), autoplay=(), battery=(), camera=(), ' +
+    'cross-origin-isolated=(), display-capture=(), document-domain=(), encrypted-media=(), ' +
+    'execution-while-not-rendered=(), execution-while-out-of-viewport=(), fullscreen=(), ' +
+    'geolocation=(), gyroscope=(), keyboard-map=(), magnetometer=(), microphone=(), ' +
+    'midi=(), navigation-override=(), payment=(), picture-in-picture=(), ' +
+    'publickey-credentials-get=(), screen-wake-lock=(), sync-xhr=(), usb=(), ' +
+    'web-share=(), xr-spatial-tracking=()');
+  
+  next();
+});
+
+// HTTPS redirect middleware for production
+if (isProduction) {
+  app.use((req, res, next) => {
+    if (req.header('x-forwarded-proto') !== 'https') {
+      res.redirect(`https://${req.header('host')}${req.url}`);
+    } else {
+      next();
+    }
+  });
+}
 
 // Rate limiting middleware
 const rateLimit = require('express-rate-limit');

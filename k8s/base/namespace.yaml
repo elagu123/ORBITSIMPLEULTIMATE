@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: orbit-mkt
+  labels:
+    name: orbit-mkt
+    environment: production
+    security.istio.io/tlsMode: istio
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: orbit-mkt-staging
+  labels:
+    name: orbit-mkt-staging
+    environment: staging
+    security.istio.io/tlsMode: istio

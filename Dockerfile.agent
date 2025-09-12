@@ -1,0 +1,74 @@
+# =============================================================================
+# ORBIT AI AGENT - DOCKERFILE
+# =============================================================================
+
+FROM node:20-alpine as base
+
+# Instalar dependencias del sistema
+RUN apk add --no-cache python3 make g++ git curl
+
+# Crear directorio de la aplicación
+WORKDIR /app
+
+# =============================================================================
+# STAGE: DEPENDENCIES
+# =============================================================================
+FROM base as deps
+
+# Copiar archivos de configuración del agente
+COPY packages/agent/package*.json ./
+COPY packages/agent/tsconfig.json ./
+
+# Instalar dependencias
+RUN npm ci --only=production && npm cache clean --force
+
+# =============================================================================
+# STAGE: BUILD
+# =============================================================================
+FROM base as builder
+
+# Copiar dependencias
+COPY --from=deps /app/node_modules ./node_modules
+
+# Copiar código fuente del agente
+COPY packages/agent ./
+
+# Construir el agente
+RUN npm run build
+
+# =============================================================================
+# STAGE: PRODUCTION
+# =============================================================================
+FROM node:20-alpine as production
+
+# Crear usuario no-root
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
+
+WORKDIR /app
+
+# Copiar dependencias de producción
+COPY --from=deps /app/node_modules ./node_modules
+
+# Copiar aplicación construida
+COPY --from=builder /app/dist ./dist
+
+# Crear directorio para datos persistentes
+RUN mkdir -p /app/data && chown -R nextjs:nodejs /app/data
+
+# Cambiar a usuario no-root
+USER nextjs
+
+# Exponer puerto
+EXPOSE 3003
+
+# Variables de entorno por defecto
+ENV NODE_ENV=production
+ENV PORT=3003
+
+# Healthcheck
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:3003/health || exit 1
+
+# Comando de inicio
+CMD ["node", "dist/index.js"]

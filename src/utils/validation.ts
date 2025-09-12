@@ -104,7 +104,7 @@ export const magicOnboardingSchema = z.object({
     'restaurant', 'retail', 'services', 'healthcare', 'education', 
     'technology', 'real_estate', 'fitness', 'beauty', 'other'
   ], {
-    errorMap: () => ({ message: 'Selecciona una industria válida' })
+    message: 'Selecciona una industria válida'
   })
 });
 
@@ -123,7 +123,7 @@ export const contentSchema = z.object({
   title: z.string().min(1, 'Título es requerido').max(100, 'Título muy largo'),
   content: longTextSchema,
   platform: z.enum(['facebook', 'instagram', 'twitter', 'linkedin', 'all'], {
-    errorMap: () => ({ message: 'Selecciona una plataforma válida' })
+    message: 'Selecciona una plataforma válida'
   }),
   scheduledDate: z.string().optional(),
   tags: z.array(z.string().max(30)).max(10, 'Máximo 10 tags').optional()
@@ -194,6 +194,21 @@ export type CalendarEventFormData = z.infer<typeof calendarEventSchema>;
 export type CampaignFormData = z.infer<typeof campaignSchema>;
 
 // ===================================================================
+// INDIVIDUAL SCHEMA EXPORTS FOR TESTING
+// ===================================================================
+
+export { 
+  emailSchema, 
+  passwordSchema, 
+  nameSchema, 
+  businessNameSchema, 
+  phoneSchema, 
+  urlSchema,
+  shortTextSchema,
+  longTextSchema 
+};
+
+// ===================================================================
 // VALIDATION HELPER FUNCTIONS
 // ===================================================================
 
@@ -206,7 +221,7 @@ export const validateInput = <T>(schema: z.ZodSchema<T>, data: unknown):
     if (error instanceof z.ZodError) {
       return { 
         success: false, 
-        errors: error.errors.map(err => err.message) 
+        errors: error.issues.map(err => err.message) 
       };
     }
     return { 

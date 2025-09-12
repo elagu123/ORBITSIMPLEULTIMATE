@@ -1,0 +1,196 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+echo "🔍 Running pre-commit security and quality checks..."
+
+# Exit on any error to prevent commit
+set -e
+
+# Color codes for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+echo_error() {
+    echo -e "${RED}❌ $1${NC}"
+}
+
+echo_warning() {
+    echo -e "${YELLOW}⚠️  $1${NC}"
+}
+
+echo_success() {
+    echo -e "${GREEN}✅ $1${NC}"
+}
+
+# Function to check for secrets and sensitive data
+check_secrets() {
+    echo "🔐 Checking for secrets and sensitive data..."
+    
+    # Check for common secret patterns
+    if git diff --cached --name-only | xargs grep -l -E "(password|secret|key|token).*=.*['\"][^'\"]{8,}" 2>/dev/null; then
+        echo_error "Potential secrets detected in staged files!"
+        echo "Files with potential secrets:"
+        git diff --cached --name-only | xargs grep -l -E "(password|secret|key|token).*=.*['\"][^'\"]{8,}" 2>/dev/null
+        exit 1
+    fi
+    
+    # Check for API keys patterns
+    if git diff --cached --name-only | xargs grep -l -E "(api_key|apikey|access_key).*['\"][A-Za-z0-9_-]{16,}" 2>/dev/null; then
+        echo_error "Potential API keys detected in staged files!"
+        exit 1
+    fi
+    
+    # Check for AWS credentials
+    if git diff --cached --name-only | xargs grep -l -E "AKIA[0-9A-Z]{16}" 2>/dev/null; then
+        echo_error "AWS credentials detected in staged files!"
+        exit 1
+    fi
+    
+    echo_success "No secrets detected"
+}
+
+# Function to validate environment variables
+check_env_vars() {
+    echo "🌍 Validating environment variables..."
+    
+    # Check for hardcoded URLs in production code
+    if git diff --cached --name-only | grep -E "\.(js|ts|jsx|tsx)$" | xargs grep -l "localhost:" 2>/dev/null; then
+        echo_warning "Localhost URLs found in code files - ensure they're properly configured for production"
+    fi
+    
+    # Check for missing .env.example updates
+    if git diff --cached --name-only | grep -q "\.env" && ! git diff --cached --quiet .env.example 2>/dev/null; then
+        echo_warning "Environment files changed but .env.example not updated"
+    fi
+    
+    echo_success "Environment validation passed"
+}
+
+# Function to run linting
+run_linting() {
+    echo "🧹 Running ESLint..."
+    
+    # Get staged TypeScript and JavaScript files
+    STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(ts|tsx|js|jsx)$' | tr '\n' ' ')
+    
+    if [ -n "$STAGED_FILES" ]; then
+        # Run ESLint on staged files
+        npx eslint $STAGED_FILES --fix --max-warnings=0
+        
+        # Add any auto-fixed files back to staging
+        git add $STAGED_FILES
+        
+        echo_success "Linting completed successfully"
+    else
+        echo "No JavaScript/TypeScript files to lint"
+    fi
+}
+
+# Function to run type checking
+run_type_checking() {
+    echo "🔍 Running TypeScript type checking..."
+    
+    # Only run if there are TypeScript files staged
+    if git diff --cached --name-only | grep -E '\.(ts|tsx)$' > /dev/null; then
+        npx tsc --noEmit --skipLibCheck
+        echo_success "Type checking passed"
+    else
+        echo "No TypeScript files to check"
+    fi
+}
+
+# Function to run tests
+run_tests() {
+    echo "🧪 Running tests..."
+    
+    # Run tests related to staged files
+    STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM)
+    
+    if [ -n "$STAGED_FILES" ]; then
+        # Run tests with coverage for staged files
+        npm run test -- --coverage --passWithNoTests --findRelatedTests $STAGED_FILES
+        echo_success "Tests completed successfully"
+    else
+        echo "No files staged for testing"
+    fi
+}
+
+# Function to check bundle size
+check_bundle_size() {
+    echo "📦 Checking bundle size impact..."
+    
+    # Build the project to check bundle size
+    npm run build > /dev/null 2>&1
+    
+    # Check if dist folder exists and analyze size
+    if [ -d "dist" ]; then
+        BUNDLE_SIZE=$(du -sh dist/ | cut -f1)
+        echo "Current bundle size: $BUNDLE_SIZE"
+        
+        # Simple check - warn if bundle is very large
+        BUNDLE_SIZE_BYTES=$(du -sb dist/ | cut -f1)
+        if [ "$BUNDLE_SIZE_BYTES" -gt 10485760 ]; then # 10MB
+            echo_warning "Bundle size is larger than 10MB - consider code splitting"
+        fi
+        
+        echo_success "Bundle size check completed"
+    fi
+}
+
+# Function to validate commit message
+validate_commit_message() {
+    echo "📝 Validating commit message format..."
+    
+    # This will be called by commit-msg hook, but we prepare for it
+    echo_success "Commit message validation will run after this hook"
+}
+
+# Function to check for TODO/FIXME comments
+check_todos() {
+    echo "📋 Checking for TODO/FIXME comments in production code..."
+    
+    STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(ts|tsx|js|jsx)$')
+    
+    if [ -n "$STAGED_FILES" ]; then
+        TODO_COUNT=$(echo "$STAGED_FILES" | xargs grep -c -i "TODO\|FIXME" 2>/dev/null | awk -F: '{sum += $2} END {print sum}')
+        
+        if [ "$TODO_COUNT" -gt 0 ]; then
+            echo_warning "Found $TODO_COUNT TODO/FIXME comments in staged files"
+            echo "Consider resolving these before committing to main branch"
+        fi
+    fi
+    
+    echo_success "TODO check completed"
+}
+
+# Main execution
+main() {
+    echo "🚀 Starting pre-commit validation pipeline..."
+    echo "════════════════════════════════════════"
+    
+    # Critical security checks - must pass
+    check_secrets
+    check_env_vars
+    
+    # Code quality checks
+    run_linting
+    run_type_checking
+    
+    # Testing
+    run_tests
+    
+    # Build and size validation
+    check_bundle_size
+    
+    # Additional checks
+    check_todos
+    
+    echo "════════════════════════════════════════"
+    echo_success "All pre-commit checks passed! 🎉"
+    echo "Proceeding with commit..."
+}
+
+# Execute main function
+main "$@"

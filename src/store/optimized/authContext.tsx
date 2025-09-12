@@ -1,5 +1,5 @@
 import React, { createContext, useState, useContext, ReactNode, useEffect, useCallback, useMemo } from 'react';
-import { authService, User, LoginCredentials, RegisterData, AuthResponse } from '../../services/authService';
+import { hybridAuthService, User, LoginCredentials, RegisterData, AuthResponse } from '../../services/hybridAuthService';
 
 // =============================================================================
 // CONTEXT INTERFACES
@@ -34,22 +34,52 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const OptimizedAuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   // Separate state pieces for optimal re-rendering
-  // DEVELOPMENT: Set to true to skip authentication temporarily
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(true);
-  const [user, setUser] = useState<User | null>({
-    id: 'dev-user-1',
-    email: 'dev@orbit.com',
-    firstName: 'Development',
-    lastName: 'User'
-  });
+  // PRODUCTION: Real authentication system
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
   // Initialize authentication state on mount
   useEffect(() => {
-    // DEVELOPMENT: Skip authentication initialization
-    console.log('🚫 Development mode: Skipping authentication initialization');
-    // initializeAuth() is disabled for development
+    const initializeAuth = async () => {
+      try {
+        setIsLoading(true);
+        
+        // Check for stored tokens
+        const storedUser = hybridAuthService.getStoredUser();
+        const tokens = hybridAuthService.getStoredTokens();
+        
+        if (storedUser && tokens) {
+          // Verify token is still valid
+          if (Date.now() < tokens.expiresAt) {
+            setUser(storedUser);
+            setIsAuthenticated(true);
+          } else {
+            // Try to refresh the token
+            try {
+              await hybridAuthService.refreshSession();
+              const refreshedUser = hybridAuthService.getStoredUser();
+              if (refreshedUser) {
+                setUser(refreshedUser);
+                setIsAuthenticated(true);
+              }
+            } catch {
+              // Refresh failed, clear stored data
+              hybridAuthService.logout();
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Auth initialization error:', error);
+        // Clear any corrupted stored data
+        hybridAuthService.logout();
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    initializeAuth();
   }, []);
 
   // Memoized actions with stable references
@@ -59,7 +89,7 @@ export const OptimizedAuthProvider: React.FC<{ children: ReactNode }> = ({ child
         setIsLoading(true);
         setError(null);
         
-        const authResponse: AuthResponse = await authService.login(credentials);
+        const authResponse: AuthResponse = await hybridAuthService.login(credentials);
         
         setIsAuthenticated(true);
         setUser(authResponse.user);
@@ -77,7 +107,7 @@ export const OptimizedAuthProvider: React.FC<{ children: ReactNode }> = ({ child
         setIsLoading(true);
         setError(null);
         
-        const authResponse = await authService.loginDemo();
+        const authResponse = await hybridAuthService.loginDemo();
         
         setIsAuthenticated(true);
         setUser(authResponse.user);
@@ -95,7 +125,7 @@ export const OptimizedAuthProvider: React.FC<{ children: ReactNode }> = ({ child
         setIsLoading(true);
         setError(null);
         
-        const authResponse = await authService.register(data);
+        const authResponse = await hybridAuthService.register(data);
         
         setIsAuthenticated(true);
         setUser(authResponse.user);
@@ -111,7 +141,7 @@ export const OptimizedAuthProvider: React.FC<{ children: ReactNode }> = ({ child
     logout: async () => {
       try {
         setIsLoading(true);
-        await authService.logout();
+        await hybridAuthService.logout();
       } catch (error) {
         console.error('Logout error:', error);
         // Continue with logout even if API call fails
@@ -129,8 +159,8 @@ export const OptimizedAuthProvider: React.FC<{ children: ReactNode }> = ({ child
 
     refreshSession: async () => {
       try {
-        const tokens = await authService.refreshTokens();
-        const storedUser = authService.getStoredUser();
+        await hybridAuthService.refreshSession();
+        const storedUser = hybridAuthService.getStoredUser();
         
         if (storedUser) {
           setUser(storedUser);
@@ -149,10 +179,8 @@ export const OptimizedAuthProvider: React.FC<{ children: ReactNode }> = ({ child
         setIsLoading(true);
         setError(null);
         
-        const updatedUser = await authService.updateProfile(updates);
+        const updatedUser = await hybridAuthService.updateProfile(updates);
         setUser(updatedUser);
-        
-        return updatedUser;
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Profile update failed';
         setError(message);
@@ -167,7 +195,7 @@ export const OptimizedAuthProvider: React.FC<{ children: ReactNode }> = ({ child
         setIsLoading(true);
         setError(null);
         
-        await authService.changePassword(currentPassword, newPassword);
+        await hybridAuthService.changePassword(currentPassword, newPassword);
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Password change failed';
         setError(message);
@@ -182,7 +210,7 @@ export const OptimizedAuthProvider: React.FC<{ children: ReactNode }> = ({ child
         setIsLoading(true);
         setError(null);
         
-        await authService.requestPasswordReset(email);
+        await hybridAuthService.requestPasswordReset(email);
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Password reset request failed';
         setError(message);
@@ -199,7 +227,7 @@ export const OptimizedAuthProvider: React.FC<{ children: ReactNode }> = ({ child
 
     const refreshInterval = setInterval(async () => {
       try {
-        const tokens = authService.getStoredTokens();
+        const tokens = hybridAuthService.getStoredTokens();
         if (!tokens) return;
 
         // Refresh if token expires in the next 5 minutes

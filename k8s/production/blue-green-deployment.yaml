@@ -1,0 +1,328 @@
+# Blue-Green Deployment Strategy for Production
+# This enables zero-downtime deployments with instant rollback capability
+
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: orbit-mkt-rollout
+  namespace: orbit-mkt
+  labels:
+    app: orbit-mkt
+    deployment-strategy: blue-green
+  annotations:
+    orbit.com/deployment-type: "blue-green"
+    orbit.com/rollback-enabled: "true"
+spec:
+  replicas: 6 # Production scale
+  strategy:
+    blueGreen:
+      # Traffic routing
+      activeService: orbit-mkt-active
+      previewService: orbit-mkt-preview
+      
+      # Automatic promotion after successful tests
+      autoPromotionEnabled: false # Manual approval required
+      
+      # Rollback window
+      scaleDownDelaySeconds: 30 # Keep old version for 30 seconds
+      prePromotionAnalysis:
+        templates:
+        - templateName: success-rate
+        - templateName: response-time
+        - templateName: error-rate
+        args:
+        - name: service-name
+          value: orbit-mkt-preview
+      
+      # Post promotion analysis
+      postPromotionAnalysis:
+        templates:
+        - templateName: success-rate
+        - templateName: response-time
+        args:
+        - name: service-name
+          value: orbit-mkt-active
+      
+      # Preview replica scaling
+      previewReplicaCount: 2
+      
+      # Promotion gate
+      activeMetadata:
+        labels:
+          role: active
+      previewMetadata:
+        labels:
+          role: preview
+
+  selector:
+    matchLabels:
+      app: orbit-mkt
+  
+  template:
+    metadata:
+      labels:
+        app: orbit-mkt
+        version: "{{.Values.image.tag}}"
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "3000"
+        prometheus.io/path: "/metrics"
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
+        seccompProfile:
+          type: RuntimeDefault
+      
+      serviceAccountName: orbit-mkt-service-account
+      
+      # Anti-affinity for production resilience
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - orbit-mkt
+            topologyKey: kubernetes.io/hostname
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            preference:
+              matchExpressions:
+              - key: node-type
+                operator: In
+                values:
+                - production
+      
+      containers:
+      - name: orbit-mkt
+        image: "ghcr.io/your-org/orbit-mkt:{{.Values.image.tag}}"
+        imagePullPolicy: Always
+        
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false
+          capabilities:
+            drop:
+            - ALL
+          runAsNonRoot: true
+          runAsUser: 1001
+        
+        ports:
+        - containerPort: 3000
+          name: http
+          protocol: TCP
+        - containerPort: 9090
+          name: metrics
+          protocol: TCP
+        
+        env:
+        - name: NODE_ENV
+          value: production
+        - name: PORT
+          value: "3000"
+        - name: DEPLOYMENT_COLOR
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.labels['role']
+        
+        envFrom:
+        - secretRef:
+            name: orbit-mkt-secrets
+        - configMapRef:
+            name: orbit-mkt-config
+        
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "200m"
+            ephemeral-storage: "2Gi"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+            ephemeral-storage: "4Gi"
+        
+        # Production-grade health checks
+        livenessProbe:
+          httpGet:
+            path: /health/live
+            port: http
+            httpHeaders:
+            - name: X-Health-Check
+              value: liveness
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 5
+        
+        readinessProbe:
+          httpGet:
+            path: /health/ready
+            port: http
+            httpHeaders:
+            - name: X-Health-Check
+              value: readiness
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          successThreshold: 1
+          failureThreshold: 3
+        
+        startupProbe:
+          httpGet:
+            path: /health/startup
+            port: http
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 6
+        
+        volumeMounts:
+        - name: tmp-volume
+          mountPath: /tmp
+        - name: logs-volume
+          mountPath: /app/logs
+        - name: config-volume
+          mountPath: /app/config
+          readOnly: true
+      
+      volumes:
+      - name: tmp-volume
+        emptyDir:
+          sizeLimit: "1Gi"
+      - name: logs-volume
+        emptyDir:
+          sizeLimit: "5Gi"
+      - name: config-volume
+        configMap:
+          name: orbit-mkt-config
+          defaultMode: 0644
+      
+      imagePullSecrets:
+      - name: ghcr-secret
+      
+      terminationGracePeriodSeconds: 60 # Allow time for graceful shutdown
+      dnsPolicy: ClusterFirst
+
+---
+# Active Service (receives production traffic)
+apiVersion: v1
+kind: Service
+metadata:
+  name: orbit-mkt-active
+  namespace: orbit-mkt
+  labels:
+    app: orbit-mkt
+    service: active
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: nlb
+    service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled: "true"
+spec:
+  type: LoadBalancer
+  ports:
+  - name: http
+    port: 80
+    targetPort: 3000
+    protocol: TCP
+  - name: https
+    port: 443
+    targetPort: 3000
+    protocol: TCP
+  selector:
+    app: orbit-mkt
+  sessionAffinity: None
+
+---
+# Preview Service (for testing new version)
+apiVersion: v1
+kind: Service
+metadata:
+  name: orbit-mkt-preview
+  namespace: orbit-mkt
+  labels:
+    app: orbit-mkt
+    service: preview
+  annotations:
+    orbit.com/access: "internal-only"
+spec:
+  type: ClusterIP
+  ports:
+  - name: http
+    port: 80
+    targetPort: 3000
+    protocol: TCP
+  selector:
+    app: orbit-mkt
+    role: preview
+
+---
+# Analysis Templates for automated testing
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: success-rate
+  namespace: orbit-mkt
+spec:
+  args:
+  - name: service-name
+  metrics:
+  - name: success-rate
+    interval: 1m
+    successCondition: result[0] >= 0.98
+    failureLimit: 3
+    provider:
+      prometheus:
+        address: http://prometheus.monitoring.svc.cluster.local:9090
+        query: |
+          sum(irate(nginx_ingress_controller_requests{service="{{args.service-name}}",status!~"5.."}[2m])) /
+          sum(irate(nginx_ingress_controller_requests{service="{{args.service-name}}"}[2m]))
+
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: response-time
+  namespace: orbit-mkt
+spec:
+  args:
+  - name: service-name
+  metrics:
+  - name: response-time-p95
+    interval: 1m
+    successCondition: result[0] <= 500
+    failureLimit: 3
+    provider:
+      prometheus:
+        address: http://prometheus.monitoring.svc.cluster.local:9090
+        query: |
+          histogram_quantile(0.95,
+            sum(rate(nginx_ingress_controller_request_duration_seconds_bucket{service="{{args.service-name}}"}[2m])) by (le)
+          ) * 1000
+
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: error-rate
+  namespace: orbit-mkt
+spec:
+  args:
+  - name: service-name
+  metrics:
+  - name: error-rate
+    interval: 1m
+    successCondition: result[0] <= 0.02
+    failureLimit: 3
+    provider:
+      prometheus:
+        address: http://prometheus.monitoring.svc.cluster.local:9090
+        query: |
+          sum(irate(nginx_ingress_controller_requests{service="{{args.service-name}}",status=~"5.."}[2m])) /
+          sum(irate(nginx_ingress_controller_requests{service="{{args.service-name}}"}[2m]))

@@ -29,7 +29,7 @@ export const RenderCounter: React.FC<RenderCounterProps> = ({
  * Hook to track component re-renders and identify causes
  */
 export const useRenderTracker = (componentName: string, deps: Record<string, any>) => {
-  const prevDeps = useRef<Record<string, any>>();
+  const prevDeps = useRef<Record<string, any> | undefined>(undefined);
   
   useEffect(() => {
     if (process.env.NODE_ENV === 'development') {

@@ -7,8 +7,7 @@ export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, '.', '');
     return {
       define: {
-        'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-        'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
+        'process.env.VITE_BACKEND_URL': JSON.stringify(env.VITE_BACKEND_URL || 'http://localhost:3001')
       },
       resolve: {
         alias: {
@@ -123,7 +122,25 @@ export default defineConfig(({ mode }) => {
         })
       ],
       build: {
+        target: 'es2018',
+        minify: 'terser',
+        chunkSizeWarningLimit: 500,
+        terserOptions: {
+          compress: {
+            drop_console: true, // Remove console.logs in production
+            drop_debugger: true,
+            pure_funcs: ['console.log', 'console.debug', 'console.trace'],
+          },
+          mangle: {
+            safari10: true,
+          },
+        },
         rollupOptions: {
+          treeshake: {
+            moduleSideEffects: false,
+            propertyReadSideEffects: false,
+            tryCatchDeoptimization: false,
+          },
           output: {
             manualChunks: (id) => {
               // Node modules vendor splitting
@@ -152,6 +169,41 @@ export default defineConfig(({ mode }) => {
                 // Google AI API
                 if (id.includes('@google/genai')) {
                   return 'ai-vendor';
+                }
+                
+                // Date/time utilities
+                if (id.includes('date-fns') || id.includes('moment')) {
+                  return 'date-vendor';
+                }
+                
+                // Form libraries
+                if (id.includes('react-hook-form') || id.includes('formik') || id.includes('@hookform')) {
+                  return 'form-vendor';
+                }
+                
+                // Utility libraries  
+                if (id.includes('lodash') || id.includes('ramda') || id.includes('clsx')) {
+                  return 'utility-vendor';
+                }
+                
+                // Testing libraries (only in dev builds)
+                if (id.includes('testing-library') || id.includes('jest')) {
+                  return 'test-vendor';
+                }
+                
+                // Zod validation library
+                if (id.includes('zod')) {
+                  return 'validation-vendor';
+                }
+                
+                // Analytics libraries
+                if (id.includes('@sentry') || id.includes('mixpanel') || id.includes('analytics')) {
+                  return 'analytics-vendor';
+                }
+                
+                // PWA and service worker related
+                if (id.includes('workbox') || id.includes('vite-plugin-pwa')) {
+                  return 'pwa-vendor';
                 }
                 
                 // Other small vendor libraries

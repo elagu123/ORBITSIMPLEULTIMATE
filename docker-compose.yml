@@ -1,0 +1,199 @@
+version: '3.8'
+
+services:
+  # =============================================================================
+  # ORBIT SIMPLE MKT - FRONTEND
+  # =============================================================================
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    ports:
+      - "3000:80"
+    environment:
+      - NODE_ENV=production
+      - VITE_API_URL=http://localhost:3001
+      - VITE_AGENT_URL=http://localhost:3003
+    depends_on:
+      - backend
+      - agent
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+    networks:
+      - orbit-network
+
+  # =============================================================================
+  # ORBIT SIMPLE MKT - BACKEND
+  # =============================================================================
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - JWT_SECRET=${JWT_SECRET}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID}
+      - FIREBASE_PRIVATE_KEY=${FIREBASE_PRIVATE_KEY}
+      - FIREBASE_CLIENT_EMAIL=${FIREBASE_CLIENT_EMAIL}
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - orbit-network
+    volumes:
+      - ./uploads:/app/uploads
+
+  # =============================================================================
+  # ORBIT AI AGENT
+  # =============================================================================
+  agent:
+    build:
+      context: .
+      dockerfile: Dockerfile.agent
+    ports:
+      - "3003:3003"
+    environment:
+      - NODE_ENV=production
+      - PORT=3003
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - CLAUDE_API_KEY=${CLAUDE_API_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - PGVECTOR_URL=postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/orbit_agent
+      - WHATSAPP_ACCESS_TOKEN=${WHATSAPP_ACCESS_TOKEN}
+      - WHATSAPP_PHONE_NUMBER_ID=${WHATSAPP_PHONE_NUMBER_ID}
+      - INSTAGRAM_ACCESS_TOKEN=${INSTAGRAM_ACCESS_TOKEN}
+      - FACEBOOK_ACCESS_TOKEN=${FACEBOOK_ACCESS_TOKEN}
+      - MIDJOURNEY_API_KEY=${MIDJOURNEY_API_KEY}
+      - STABILITY_API_KEY=${STABILITY_API_KEY}
+    depends_on:
+      - postgres
+      - redis
+      - pgvector
+    networks:
+      - orbit-network
+    volumes:
+      - agent-data:/app/data
+
+  # =============================================================================
+  # BASE DE DATOS POSTGRESQL
+  # =============================================================================
+  postgres:
+    image: postgres:15-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=orbit_simple_mkt
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    networks:
+      - orbit-network
+
+  # =============================================================================
+  # PGVECTOR PARA EMBEDDINGS
+  # =============================================================================
+  pgvector:
+    image: pgvector/pgvector:pg15
+    ports:
+      - "5433:5432"
+    environment:
+      - POSTGRES_DB=orbit_agent
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - pgvector-data:/var/lib/postgresql/data
+      - ./scripts/init-pgvector.sql:/docker-entrypoint-initdb.d/init-pgvector.sql
+    networks:
+      - orbit-network
+
+  # =============================================================================
+  # REDIS PARA CACHE Y MEMORIA
+  # =============================================================================
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: redis-server --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - redis-data:/data
+    networks:
+      - orbit-network
+
+  # =============================================================================
+  # NGINX REVERSE PROXY
+  # =============================================================================
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/ssl:/etc/nginx/ssl
+    depends_on:
+      - frontend
+      - backend
+      - agent
+    networks:
+      - orbit-network
+
+  # =============================================================================
+  # MONITOREO CON PROMETHEUS
+  # =============================================================================
+  prometheus:
+    image: prom/prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    networks:
+      - orbit-network
+
+  # =============================================================================
+  # GRAFANA PARA DASHBOARDS
+  # =============================================================================
+  grafana:
+    image: grafana/grafana
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+    depends_on:
+      - prometheus
+    networks:
+      - orbit-network
+
+# =============================================================================
+# VOLUMES PERSISTENTES
+# =============================================================================
+volumes:
+  postgres-data:
+  pgvector-data:
+  redis-data:
+  agent-data:
+  prometheus-data:
+  grafana-data:
+
+# =============================================================================
+# NETWORK
+# =============================================================================
+networks:
+  orbit-network:
+    driver: bridge

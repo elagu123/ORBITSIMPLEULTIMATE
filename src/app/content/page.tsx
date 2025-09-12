@@ -7,13 +7,13 @@ import TemplateSelector, { TEMPLATES } from '../../components/features/content/T
 import ContentEditor from '../../components/features/content/ContentEditor';
 import ContentPreview from '../../components/features/content/ContentPreview';
 import AIPrediction from '../../components/features/content/AIPrediction';
-import VisualAssetGenerator from '../../components/features/content/VisualAssetGenerator';
 import { useGamification } from '../../store/gamificationContext';
 import PublishingPanel from '../../components/features/content/PublishingPanel';
-import ContentVariationsModal from '../../components/features/content/ContentVariationsModal';
-import PromptEnhancementModal from '../../components/features/content/PromptEnhancementModal';
-// Lazy load heavy components for better performance
+// Lazy load heavy components and modals for better performance
 const AdvancedContentGenerator = React.lazy(() => import('../../components/features/content/AdvancedContentGenerator'));
+const VisualAssetGenerator = React.lazy(() => import('../../components/features/content/VisualAssetGenerator'));
+const ContentVariationsModal = React.lazy(() => import('../../components/features/content/ContentVariationsModal'));
+const PromptEnhancementModal = React.lazy(() => import('../../components/features/content/PromptEnhancementModal'));
 import { aiService } from '../../services/aiService';
 import { useProfile } from '../../store/profileContext';
 
@@ -264,21 +264,25 @@ const ContentPage: React.FC<ContentPageProps> = ({ prefilledContent, clearPrefil
                 </motion.div>
             </div>
             
-            <ContentVariationsModal
-                isOpen={isVariationsModalOpen}
-                onClose={() => setIsVariationsModalOpen(false)}
-                originalText={fullPostText}
-                onApplyVariation={handleApplyVariation}
-            />
+            <Suspense fallback={<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"><div className="spinner"></div></div>}>
+                <ContentVariationsModal
+                    isOpen={isVariationsModalOpen}
+                    onClose={() => setIsVariationsModalOpen(false)}
+                    originalText={fullPostText}
+                    onApplyVariation={handleApplyVariation}
+                />
+            </Suspense>
 
             {promptAnalysis && (
-                 <PromptEnhancementModal
-                    isOpen={isPromptModalOpen}
-                    onClose={() => setIsPromptModalOpen(false)}
-                    analysis={promptAnalysis}
-                    originalPrompt={originalPrompt}
-                    onConfirm={handleGenerateFromPrompt}
-                />
+                <Suspense fallback={<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"><div className="spinner"></div></div>}>
+                    <PromptEnhancementModal
+                        isOpen={isPromptModalOpen}
+                        onClose={() => setIsPromptModalOpen(false)}
+                        analysis={promptAnalysis}
+                        originalPrompt={originalPrompt}
+                        onConfirm={handleGenerateFromPrompt}
+                    />
+                </Suspense>
             )}
         </>
     );

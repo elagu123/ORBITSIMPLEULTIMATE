@@ -1,0 +1,372 @@
+# Orbit MKT Alert Rules
+# Comprehensive alerting for technical and business metrics
+
+groups:
+  # Critical System Alerts
+  - name: orbit-mkt-critical
+    interval: 30s
+    rules:
+      - alert: OrbitMKTDown
+        expr: up{job="orbit-mkt-app"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: application
+          team: platform
+        annotations:
+          summary: "Orbit MKT application is down"
+          description: "Orbit MKT application has been down for more than 1 minute. Instance: {{ $labels.instance }}"
+          runbook_url: "https://wiki.company.com/runbooks/orbit-mkt-down"
+          action_required: "Immediate investigation and potential rollback required"
+
+      - alert: HighErrorRate
+        expr: |
+          (
+            sum(rate(http_requests_total{job="orbit-mkt-app",status=~"5.."}[5m])) /
+            sum(rate(http_requests_total{job="orbit-mkt-app"}[5m]))
+          ) > 0.05
+        for: 2m
+        labels:
+          severity: critical
+          component: application
+          team: platform
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is {{ $value | humanizePercentage }} for the last 5 minutes"
+          runbook_url: "https://wiki.company.com/runbooks/high-error-rate"
+          action_required: "Investigate logs and consider rollback if deployment related"
+
+      - alert: DatabaseConnectionFailure
+        expr: |
+          sum(rate(database_connections_failed_total{job="orbit-mkt-app"}[5m])) > 0
+        for: 1m
+        labels:
+          severity: critical
+          component: database
+          team: platform
+        annotations:
+          summary: "Database connection failures detected"
+          description: "Database connection failures occurring at {{ $value }} per second"
+          runbook_url: "https://wiki.company.com/runbooks/database-issues"
+
+      - alert: MemoryUsageHigh
+        expr: |
+          (
+            container_memory_usage_bytes{namespace=~"orbit-mkt.*",container="orbit-mkt"} /
+            container_spec_memory_limit_bytes{namespace=~"orbit-mkt.*",container="orbit-mkt"}
+          ) > 0.9
+        for: 5m
+        labels:
+          severity: critical
+          component: infrastructure
+          team: platform
+        annotations:
+          summary: "High memory usage detected"
+          description: "Memory usage is {{ $value | humanizePercentage }} on {{ $labels.pod }}"
+          action_required: "Check for memory leaks or scale up resources"
+
+      - alert: PodCrashLooping
+        expr: |
+          rate(kube_pod_container_status_restarts_total{namespace=~"orbit-mkt.*"}[10m]) > 0
+        for: 2m
+        labels:
+          severity: critical
+          component: infrastructure
+          team: platform
+        annotations:
+          summary: "Pod is crash looping"
+          description: "Pod {{ $labels.pod }} in namespace {{ $labels.namespace }} is restarting frequently"
+          action_required: "Check pod logs and investigate root cause"
+
+  # Business Critical Alerts
+  - name: orbit-mkt-business-critical
+    interval: 60s
+    rules:
+      - alert: ConversionRateDropped
+        expr: |
+          (
+            sum(rate(orbit_conversions_total[10m])) /
+            sum(rate(orbit_page_views_total[10m]))
+          ) < 0.01
+        for: 10m
+        labels:
+          severity: critical
+          component: business
+          team: product
+        annotations:
+          summary: "Conversion rate critically low"
+          description: "Conversion rate has dropped to {{ $value | humanizePercentage }} (below 1%)"
+          impact: "Revenue impact - immediate investigation required"
+          runbook_url: "https://wiki.company.com/runbooks/low-conversion-rate"
+
+      - alert: UserRegistrationStopped
+        expr: |
+          sum(increase(orbit_user_registrations_total[30m])) == 0
+        for: 30m
+        labels:
+          severity: critical
+          component: business
+          team: product
+        annotations:
+          summary: "No new user registrations"
+          description: "No user registrations in the last 30 minutes"
+          impact: "Growth impact - registration system may be broken"
+
+      - alert: PaymentProcessingFailure
+        expr: |
+          sum(rate(orbit_payment_failures_total[5m])) > 0.1
+        for: 5m
+        labels:
+          severity: critical
+          component: business
+          team: platform
+        annotations:
+          summary: "High payment processing failure rate"
+          description: "Payment failures occurring at {{ $value }} per second"
+          impact: "Revenue impact - payment system issues"
+
+  # Warning Level Alerts
+  - name: orbit-mkt-warnings
+    interval: 60s
+    rules:
+      - alert: HighResponseTime
+        expr: |
+          histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job="orbit-mkt-app"}[5m])) by (le)) > 2
+        for: 10m
+        labels:
+          severity: warning
+          component: performance
+          team: platform
+        annotations:
+          summary: "High response time detected"
+          description: "95th percentile response time is {{ $value }}s"
+          runbook_url: "https://wiki.company.com/runbooks/high-response-time"
+
+      - alert: DiskSpaceLow
+        expr: |
+          (
+            node_filesystem_avail_bytes{mountpoint="/"} /
+            node_filesystem_size_bytes{mountpoint="/"}
+          ) < 0.15
+        for: 5m
+        labels:
+          severity: warning
+          component: infrastructure
+          team: platform
+        annotations:
+          summary: "Low disk space"
+          description: "Disk space is {{ $value | humanizePercentage }} on {{ $labels.instance }}"
+          action_required: "Clean up logs or expand disk space"
+
+      - alert: HighCPUUsage
+        expr: |
+          (
+            sum(rate(container_cpu_usage_seconds_total{namespace=~"orbit-mkt.*",container="orbit-mkt"}[5m])) by (pod) /
+            sum(container_spec_cpu_quota{namespace=~"orbit-mkt.*",container="orbit-mkt"} / container_spec_cpu_period{namespace=~"orbit-mkt.*",container="orbit-mkt"}) by (pod)
+          ) > 0.8
+        for: 10m
+        labels:
+          severity: warning
+          component: performance
+          team: platform
+        annotations:
+          summary: "High CPU usage"
+          description: "CPU usage is {{ $value | humanizePercentage }} on {{ $labels.pod }}"
+
+      - alert: UnusualTrafficPattern
+        expr: |
+          (
+            sum(rate(http_requests_total{job="orbit-mkt-app"}[5m])) /
+            sum(rate(http_requests_total{job="orbit-mkt-app"}[1h] offset 1h))
+          ) > 3 or
+          (
+            sum(rate(http_requests_total{job="orbit-mkt-app"}[5m])) /
+            sum(rate(http_requests_total{job="orbit-mkt-app"}[1h] offset 1h))
+          ) < 0.3
+        for: 5m
+        labels:
+          severity: warning
+          component: traffic
+          team: platform
+        annotations:
+          summary: "Unusual traffic pattern detected"
+          description: "Current traffic is {{ $value }}x compared to the same time last hour"
+          action_required: "Investigate traffic anomaly - could be attack or viral content"
+
+  # Security Alerts
+  - name: orbit-mkt-security
+    interval: 30s
+    rules:
+      - alert: HighFailedLoginAttempts
+        expr: |
+          sum(rate(orbit_failed_login_attempts_total[5m])) > 10
+        for: 2m
+        labels:
+          severity: warning
+          component: security
+          team: security
+        annotations:
+          summary: "High number of failed login attempts"
+          description: "{{ $value }} failed login attempts per second"
+          action_required: "Potential brute force attack - investigate and possibly block IPs"
+
+      - alert: UnusualAPIUsage
+        expr: |
+          sum(rate(http_requests_total{job="orbit-mkt-app",endpoint=~"/api/.*"}[5m])) > 100
+        for: 5m
+        labels:
+          severity: warning
+          component: security
+          team: security
+        annotations:
+          summary: "Unusual API usage detected"
+          description: "API requests at {{ $value }} per second, which is unusually high"
+          action_required: "Investigate for potential API abuse or DDoS attack"
+
+      - alert: SSLCertificateExpiry
+        expr: |
+          ssl_cert_not_after - time() < 86400 * 7
+        for: 1h
+        labels:
+          severity: warning
+          component: security
+          team: platform
+        annotations:
+          summary: "SSL certificate expiring soon"
+          description: "SSL certificate for {{ $labels.instance }} expires in {{ $value | humanizeDuration }}"
+          action_required: "Renew SSL certificate before expiry"
+
+  # Deployment Alerts
+  - name: orbit-mkt-deployment
+    interval: 60s
+    rules:
+      - alert: DeploymentRollbackDetected
+        expr: |
+          increase(kube_deployment_status_observed_generation{deployment=~"orbit-mkt.*"}[5m]) < 0
+        for: 1m
+        labels:
+          severity: critical
+          component: deployment
+          team: platform
+        annotations:
+          summary: "Deployment rollback detected"
+          description: "Rollback detected for deployment {{ $labels.deployment }}"
+          action_required: "Verify rollback was intentional and investigate root cause"
+
+      - alert: PodStuckInPending
+        expr: |
+          kube_pod_status_phase{phase="Pending", namespace=~"orbit-mkt.*"} > 0
+        for: 10m
+        labels:
+          severity: warning
+          component: deployment
+          team: platform
+        annotations:
+          summary: "Pod stuck in Pending state"
+          description: "Pod {{ $labels.pod }} has been in Pending state for over 10 minutes"
+          action_required: "Check resource availability and pod scheduling issues"
+
+      - alert: ReplicasMismatch
+        expr: |
+          (
+            kube_deployment_spec_replicas{deployment=~"orbit-mkt.*"} -
+            kube_deployment_status_replicas_available{deployment=~"orbit-mkt.*"}
+          ) > 0
+        for: 15m
+        labels:
+          severity: warning
+          component: deployment
+          team: platform
+        annotations:
+          summary: "Deployment has fewer available replicas than desired"
+          description: "{{ $labels.deployment }} has {{ $value }} fewer replicas than desired"
+          action_required: "Check pod status and resource availability"
+
+  # Business Metrics Alerts
+  - name: orbit-mkt-business
+    interval: 300s # 5 minutes
+    rules:
+      - alert: SessionDurationDropped
+        expr: |
+          avg_over_time(orbit_session_duration_seconds[1h]) < 120
+        for: 30m
+        labels:
+          severity: warning
+          component: business
+          team: product
+        annotations:
+          summary: "Average session duration dropped"
+          description: "Average session duration is {{ $value }}s (below 2 minutes)"
+          impact: "User engagement drop - investigate UX issues"
+
+      - alert: HighBounceRate
+        expr: |
+          (
+            sum(rate(orbit_single_page_sessions_total[1h])) /
+            sum(rate(orbit_total_sessions_total[1h]))
+          ) > 0.7
+        for: 30m
+        labels:
+          severity: warning
+          component: business
+          team: product
+        annotations:
+          summary: "High bounce rate detected"
+          description: "Bounce rate is {{ $value | humanizePercentage }} (above 70%)"
+          impact: "User experience issue - investigate landing page performance"
+
+      - alert: LowContentGenerationRate
+        expr: |
+          sum(rate(orbit_content_generated_total[1h])) < 10
+        for: 1h
+        labels:
+          severity: warning
+          component: business
+          team: product
+        annotations:
+          summary: "Low content generation rate"
+          description: "Only {{ $value }} pieces of content generated per hour"
+          impact: "AI service may be degraded or users are experiencing issues"
+
+  # Infrastructure Health
+  - name: orbit-mkt-infrastructure
+    interval: 120s
+    rules:
+      - alert: KubernetesNodeNotReady
+        expr: |
+          kube_node_status_condition{condition="Ready",status="true"} == 0
+        for: 5m
+        labels:
+          severity: critical
+          component: infrastructure
+          team: platform
+        annotations:
+          summary: "Kubernetes node not ready"
+          description: "Node {{ $labels.node }} is not in Ready state"
+          action_required: "Investigate node health and potentially cordon/drain"
+
+      - alert: PersistentVolumeClaimPending
+        expr: |
+          kube_persistentvolumeclaim_status_phase{phase="Pending", namespace=~"orbit-mkt.*"} > 0
+        for: 10m
+        labels:
+          severity: warning
+          component: infrastructure
+          team: platform
+        annotations:
+          summary: "PVC stuck in Pending state"
+          description: "PVC {{ $labels.persistentvolumeclaim }} has been pending for over 10 minutes"
+          action_required: "Check storage class and volume provisioning"
+
+      - alert: NetworkPolicyViolation
+        expr: |
+          increase(network_policy_violations_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+          component: security
+          team: security
+        annotations:
+          summary: "Network policy violation detected"
+          description: "{{ $value }} network policy violations in the last 5 minutes"
+          action_required: "Investigate unauthorized network access attempts"

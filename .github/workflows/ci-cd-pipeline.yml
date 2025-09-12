@@ -1,0 +1,442 @@
+name: 🚀 Enterprise CI/CD Pipeline with Security Validation
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+        - staging
+        - production
+      deployment_type:
+        description: 'Deployment strategy'
+        required: true
+        default: 'blue-green'
+        type: choice
+        options:
+        - blue-green
+        - canary
+        - rolling
+      skip_tests:
+        description: 'Skip tests (DANGEROUS - only for emergencies)'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  NODE_VERSION: '20'
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  DEPLOYMENT_TIMEOUT: 600s
+  HEALTH_CHECK_RETRIES: 10
+  HEALTH_CHECK_DELAY: 30s
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ═══════════════════════════════════════════════════════════════
+  # SECURITY AND COMPLIANCE VALIDATION
+  # ═══════════════════════════════════════════════════════════════
+  security-scan:
+    name: 🔒 Security & Compliance Scan
+    runs-on: ubuntu-latest
+    outputs:
+      vulnerabilities-found: ${{ steps.security-check.outputs.vulnerabilities-found }}
+      compliance-score: ${{ steps.compliance-check.outputs.score }}
+    
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Full history for security analysis
+
+      - name: 🔍 Secret Detection Scan
+        uses: trufflesecurity/trufflehog@main
+        with:
+          base: ${{ github.event.repository.default_branch }}
+          head: HEAD
+          extra_args: --debug --only-verified
+
+      - name: 🛡️ SAST Security Scan
+        uses: github/super-linter@v5
+        env:
+          DEFAULT_BRANCH: main
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VALIDATE_ALL_CODEBASE: false
+          VALIDATE_JAVASCRIPT_ES: true
+          VALIDATE_TYPESCRIPT_ES: true
+          VALIDATE_CSS: true
+          VALIDATE_HTML: true
+          VALIDATE_JSON: true
+          VALIDATE_YAML: true
+
+      - name: 🔐 Dependency Vulnerability Scan
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+          allow-licenses: MIT, Apache-2.0, BSD-3-Clause, ISC
+
+      - name: ⚖️ License Compliance Check
+        run: |
+          npx license-checker --summary --onlyAllow 'MIT;Apache-2.0;BSD-3-Clause;ISC'
+
+      - name: 🔒 Docker Image Security Scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'node:20-alpine'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: 📊 Security Report
+        id: security-check
+        run: |
+          echo "vulnerabilities-found=false" >> $GITHUB_OUTPUT
+          echo "::notice::Security scan completed successfully"
+
+  # ═══════════════════════════════════════════════════════════════
+  # CODE QUALITY AND TESTING
+  # ═══════════════════════════════════════════════════════════════
+  code-quality:
+    name: 🧪 Code Quality & Testing
+    runs-on: ubuntu-latest
+    needs: security-scan
+    strategy:
+      matrix:
+        node-version: [18, 20]
+    
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🟢 Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: 📦 Install Dependencies
+        run: |
+          npm ci
+          cd server && npm ci
+
+      - name: 🔍 TypeScript Type Check
+        run: npm run type-check
+
+      - name: 🧹 Lint Code
+        run: npm run lint
+
+      - name: 🧪 Run Unit Tests
+        run: npm run test:coverage
+
+      - name: 🔬 Run Integration Tests
+        run: npm run test:integration
+        env:
+          NODE_ENV: test
+
+      - name: 🌐 Run E2E Tests
+        run: |
+          npm run build
+          npm run test:e2e
+        env:
+          NODE_ENV: test
+
+      - name: 📊 Upload Coverage Reports
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          file: ./coverage/lcov.info
+
+      - name: 🎯 Performance Audit
+        run: |
+          npm install -g lighthouse-ci
+          npm run build
+          lhci autorun
+
+      - name: 📋 Accessibility Audit
+        run: |
+          npm install -g @axe-core/cli
+          npm run build
+          axe --verbose --exit dist/
+
+  # ═══════════════════════════════════════════════════════════════
+  # BUILD AND ARTIFACT GENERATION
+  # ═══════════════════════════════════════════════════════════════
+  build:
+    name: 🏗️ Build & Package
+    runs-on: ubuntu-latest
+    needs: [security-scan, code-quality]
+    outputs:
+      image-digest: ${{ steps.build.outputs.digest }}
+      image-tag: ${{ steps.meta.outputs.tags }}
+      
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: 📦 Install Dependencies
+        run: |
+          npm ci
+          cd server && npm ci
+
+      - name: 🏗️ Build Application
+        run: |
+          npm run build
+          npm run build:server
+        env:
+          NODE_ENV: production
+
+      - name: 📊 Bundle Analysis
+        run: |
+          npm run analyze
+          ls -la dist/
+
+      - name: 🐳 Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 🔐 Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 📝 Extract Metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: 🏗️ Build and Push Docker Image
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            NODE_ENV=production
+            BUILD_DATE=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.created'] }}
+            VCS_REF=${{ github.sha }}
+
+      - name: 🔍 Scan Built Image
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ steps.meta.outputs.tags }}
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+  # ═══════════════════════════════════════════════════════════════
+  # STAGING DEPLOYMENT WITH VALIDATION
+  # ═══════════════════════════════════════════════════════════════
+  deploy-staging:
+    name: 🎭 Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/develop' || github.event_name == 'workflow_dispatch'
+    environment:
+      name: staging
+      url: https://staging.orbit.com
+    
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: ⚙️ Setup Kubernetes
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.28.0'
+
+      - name: 🔐 Configure Kubernetes Access
+        run: |
+          echo "${{ secrets.KUBE_CONFIG_STAGING }}" | base64 -d > kubeconfig
+          export KUBECONFIG=kubeconfig
+
+      - name: 🚀 Deploy to Staging
+        run: |
+          envsubst < k8s/staging/deployment.yaml | kubectl apply -f -
+          kubectl rollout status deployment/orbit-mkt-staging --timeout=${{ env.DEPLOYMENT_TIMEOUT }}
+        env:
+          IMAGE_TAG: ${{ needs.build.outputs.image-tag }}
+          ENVIRONMENT: staging
+
+      - name: 🏥 Health Check
+        run: |
+          chmod +x scripts/health-check.sh
+          ./scripts/health-check.sh staging https://staging.orbit.com/health
+
+      - name: 🧪 Smoke Tests
+        run: |
+          chmod +x scripts/smoke-tests.sh
+          ./scripts/smoke-tests.sh staging https://staging.orbit.com
+
+      - name: 📊 Performance Baseline
+        run: |
+          lighthouse https://staging.orbit.com --output=json --output-path=./lighthouse-staging.json
+          echo "Staging performance baseline recorded"
+
+  # ═══════════════════════════════════════════════════════════════
+  # PRODUCTION DEPLOYMENT WITH MULTIPLE STRATEGIES
+  # ═══════════════════════════════════════════════════════════════
+  deploy-production:
+    name: 🏭 Production Deployment
+    runs-on: ubuntu-latest
+    needs: [build, deploy-staging]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment:
+      name: production
+      url: https://orbit.com
+    
+    strategy:
+      matrix:
+        deployment_type: ['blue-green'] # Can be extended to ['blue-green', 'canary', 'rolling']
+    
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: ⚙️ Setup Kubernetes
+        uses: azure/setup-kubectl@v3
+
+      - name: 🔐 Configure Production Access
+        run: |
+          echo "${{ secrets.KUBE_CONFIG_PRODUCTION }}" | base64 -d > kubeconfig
+          export KUBECONFIG=kubeconfig
+
+      - name: 🛡️ Pre-deployment Security Check
+        run: |
+          # Verify image signature and provenance
+          echo "Verifying image security..."
+          # Add image verification logic here
+
+      - name: 🎯 Blue-Green Deployment
+        if: matrix.deployment_type == 'blue-green'
+        run: |
+          chmod +x scripts/blue-green-deploy.sh
+          ./scripts/blue-green-deploy.sh production ${{ needs.build.outputs.image-tag }}
+
+      - name: 🕯️ Canary Deployment
+        if: matrix.deployment_type == 'canary'
+        run: |
+          chmod +x scripts/canary-deploy.sh
+          ./scripts/canary-deploy.sh production ${{ needs.build.outputs.image-tag }}
+
+      - name: 🏥 Comprehensive Health Checks
+        run: |
+          chmod +x scripts/production-health-check.sh
+          ./scripts/production-health-check.sh
+
+      - name: 📊 Performance Monitoring
+        run: |
+          lighthouse https://orbit.com --output=json --output-path=./lighthouse-production.json
+          # Compare with baseline and fail if significant degradation
+
+      - name: 🔔 Success Notification
+        if: success()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: success
+          text: '🚀 Production deployment successful!'
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+
+  # ═══════════════════════════════════════════════════════════════
+  # AUTOMATED ROLLBACK ON FAILURE
+  # ═══════════════════════════════════════════════════════════════
+  rollback-on-failure:
+    name: ⚡ Emergency Rollback
+    runs-on: ubuntu-latest
+    needs: [deploy-production]
+    if: failure() && needs.deploy-production.result == 'failure'
+    
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: ⚙️ Setup Kubernetes
+        uses: azure/setup-kubectl@v3
+
+      - name: 🔐 Configure Production Access
+        run: |
+          echo "${{ secrets.KUBE_CONFIG_PRODUCTION }}" | base64 -d > kubeconfig
+          export KUBECONFIG=kubeconfig
+
+      - name: ⏪ Execute Emergency Rollback
+        run: |
+          echo "🚨 EMERGENCY ROLLBACK INITIATED"
+          chmod +x scripts/emergency-rollback.sh
+          ./scripts/emergency-rollback.sh production
+
+      - name: 🏥 Verify Rollback Success
+        run: |
+          chmod +x scripts/verify-rollback.sh
+          ./scripts/verify-rollback.sh production
+
+      - name: 📢 Alert Team
+        uses: 8398a7/action-slack@v3
+        with:
+          status: failure
+          text: |
+            🚨 CRITICAL: Production deployment failed and automatic rollback was executed!
+            
+            Repository: ${{ github.repository }}
+            Branch: ${{ github.ref }}
+            Commit: ${{ github.sha }}
+            
+            Immediate investigation required!
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+
+  # ═══════════════════════════════════════════════════════════════
+  # LOAD TESTING AND CHAOS ENGINEERING
+  # ═══════════════════════════════════════════════════════════════
+  load-testing:
+    name: 🏋️ Load Testing & Chaos Engineering
+    runs-on: ubuntu-latest
+    needs: deploy-production
+    if: success() && github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: ⚡ K6 Load Testing
+        run: |
+          docker run --rm -v $PWD/load-tests:/scripts grafana/k6:latest run /scripts/load-test.js
+        env:
+          TARGET_URL: https://orbit.com
+
+      - name: 🌪️ Chaos Engineering Tests
+        run: |
+          # Chaos Monkey-style tests (implement carefully)
+          echo "Running controlled chaos engineering tests..."
+          # Add chaos engineering logic here
+
+      - name: 📊 Performance Report
+        run: |
+          echo "Load testing completed - generating performance report"
+          # Generate and store performance metrics

@@ -1,0 +1,473 @@
+name: 🚦 Deployment Approval Workflow
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: 'Target deployment environment'
+        required: true
+        type: string
+      deployment_strategy:
+        description: 'Deployment strategy to use'
+        required: true
+        type: string
+        default: 'blue-green'
+      image_tag:
+        description: 'Docker image tag to deploy'
+        required: true
+        type: string
+      bypass_approval:
+        description: 'Bypass manual approval (emergency only)'
+        required: false
+        type: boolean
+        default: false
+      
+    secrets:
+      SLACK_WEBHOOK_URL:
+        required: false
+      TEAMS_WEBHOOK_URL:
+        required: false
+      DEPLOYMENT_APPROVERS_TEAM:
+        required: true
+
+env:
+  APPROVAL_TIMEOUT: 3600 # 1 hour timeout for approvals
+  EMERGENCY_CONTACTS: 'devops-team,security-team,platform-team'
+
+jobs:
+  # ═══════════════════════════════════════════════════════════════
+  # PRE-DEPLOYMENT VALIDATION AND APPROVAL REQUEST
+  # ═══════════════════════════════════════════════════════════════
+  pre-deployment-validation:
+    name: 📋 Pre-Deployment Validation
+    runs-on: ubuntu-latest
+    outputs:
+      approval-required: ${{ steps.determine-approval.outputs.required }}
+      risk-level: ${{ steps.risk-assessment.outputs.level }}
+      validation-status: ${{ steps.validation.outputs.status }}
+    
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🔍 Risk Assessment
+        id: risk-assessment
+        run: |
+          echo "Performing deployment risk assessment..."
+          
+          RISK_LEVEL="LOW"
+          RISK_FACTORS=()
+          
+          # Environment-based risk
+          if [ "${{ inputs.environment }}" = "production" ]; then
+            RISK_LEVEL="MEDIUM"
+            RISK_FACTORS+=("Production deployment")
+          fi
+          
+          # Time-based risk (avoid Friday/weekend deployments)
+          CURRENT_DAY=$(date +%u) # 1=Monday, 7=Sunday
+          CURRENT_HOUR=$(date +%H)
+          
+          if [ "$CURRENT_DAY" -ge 5 ]; then
+            RISK_LEVEL="HIGH"
+            RISK_FACTORS+=("Weekend deployment")
+          fi
+          
+          if [ "$CURRENT_HOUR" -lt 9 ] || [ "$CURRENT_HOUR" -gt 17 ]; then
+            RISK_LEVEL="MEDIUM"
+            RISK_FACTORS+=("After-hours deployment")
+          fi
+          
+          # Strategy-based risk
+          if [ "${{ inputs.deployment_strategy }}" = "rolling" ]; then
+            RISK_LEVEL="MEDIUM"
+            RISK_FACTORS+=("Rolling deployment strategy")
+          fi
+          
+          # Recent deployment history
+          RECENT_DEPLOYMENTS=$(git log --since="24 hours ago" --grep="deploy\|release" --oneline | wc -l)
+          if [ "$RECENT_DEPLOYMENTS" -gt 3 ]; then
+            RISK_LEVEL="HIGH"
+            RISK_FACTORS+=("Multiple recent deployments")
+          fi
+          
+          echo "level=$RISK_LEVEL" >> $GITHUB_OUTPUT
+          echo "factors=${RISK_FACTORS[*]}" >> $GITHUB_OUTPUT
+          
+          echo "🎯 Risk Assessment Complete:"
+          echo "  Level: $RISK_LEVEL"
+          echo "  Factors: ${RISK_FACTORS[*]}"
+
+      - name: 🧪 Pre-Deployment Tests
+        id: validation
+        run: |
+          echo "Running pre-deployment validation tests..."
+          
+          VALIDATION_STATUS="passed"
+          FAILED_CHECKS=()
+          
+          # Check if all required files exist
+          REQUIRED_FILES=("package.json" "Dockerfile" "k8s/")
+          for file in "${REQUIRED_FILES[@]}"; do
+            if [ ! -e "$file" ]; then
+              VALIDATION_STATUS="failed"
+              FAILED_CHECKS+=("Missing required file: $file")
+            fi
+          done
+          
+          # Validate image tag format
+          if ! echo "${{ inputs.image_tag }}" | grep -E "^[a-zA-Z0-9\.\-_]+$"; then
+            VALIDATION_STATUS="failed"
+            FAILED_CHECKS+=("Invalid image tag format")
+          fi
+          
+          # Check for breaking changes
+          if git log --since="1 week ago" --grep="BREAKING" --oneline | head -1; then
+            VALIDATION_STATUS="warning"
+            FAILED_CHECKS+=("Breaking changes detected in recent commits")
+          fi
+          
+          # Security scan results check
+          if [ -f "security-report.json" ]; then
+            CRITICAL_ISSUES=$(jq '.summary.issues.critical // 0' security-report.json)
+            if [ "$CRITICAL_ISSUES" -gt 0 ]; then
+              VALIDATION_STATUS="failed"
+              FAILED_CHECKS+=("$CRITICAL_ISSUES critical security issues found")
+            fi
+          fi
+          
+          echo "status=$VALIDATION_STATUS" >> $GITHUB_OUTPUT
+          echo "failed_checks=${FAILED_CHECKS[*]}" >> $GITHUB_OUTPUT
+          
+          if [ "$VALIDATION_STATUS" = "failed" ]; then
+            echo "❌ Pre-deployment validation failed:"
+            printf "  - %s\n" "${FAILED_CHECKS[@]}"
+            exit 1
+          else
+            echo "✅ Pre-deployment validation passed"
+          fi
+
+      - name: 🎯 Determine Approval Requirements
+        id: determine-approval
+        run: |
+          APPROVAL_REQUIRED="false"
+          APPROVAL_REASON=()
+          
+          # Always require approval for production
+          if [ "${{ inputs.environment }}" = "production" ]; then
+            APPROVAL_REQUIRED="true"
+            APPROVAL_REASON+=("Production environment")
+          fi
+          
+          # Require approval for high-risk deployments
+          if [ "${{ steps.risk-assessment.outputs.level }}" = "HIGH" ]; then
+            APPROVAL_REQUIRED="true"
+            APPROVAL_REASON+=("High-risk deployment")
+          fi
+          
+          # Require approval for validation warnings
+          if [ "${{ steps.validation.outputs.status }}" = "warning" ]; then
+            APPROVAL_REQUIRED="true"
+            APPROVAL_REASON+=("Validation warnings")
+          fi
+          
+          # Emergency bypass
+          if [ "${{ inputs.bypass_approval }}" = "true" ]; then
+            APPROVAL_REQUIRED="false"
+            APPROVAL_REASON+=("Emergency bypass activated")
+          fi
+          
+          echo "required=$APPROVAL_REQUIRED" >> $GITHUB_OUTPUT
+          echo "reason=${APPROVAL_REASON[*]}" >> $GITHUB_OUTPUT
+          
+          echo "🚦 Approval Decision:"
+          echo "  Required: $APPROVAL_REQUIRED"
+          echo "  Reason: ${APPROVAL_REASON[*]}"
+
+  # ═══════════════════════════════════════════════════════════════
+  # NOTIFICATION AND APPROVAL REQUEST
+  # ═══════════════════════════════════════════════════════════════
+  request-approval:
+    name: 🔔 Request Deployment Approval
+    runs-on: ubuntu-latest
+    needs: pre-deployment-validation
+    if: needs.pre-deployment-validation.outputs.approval-required == 'true'
+    environment:
+      name: ${{ inputs.environment }}-approval
+      
+    steps:
+      - name: 📢 Send Approval Request Notifications
+        run: |
+          echo "Sending deployment approval request notifications..."
+          
+          # Prepare deployment details
+          DEPLOYMENT_DETAILS=$(cat << EOF
+          🚀 **Deployment Approval Request**
+          
+          **Environment:** ${{ inputs.environment }}
+          **Strategy:** ${{ inputs.deployment_strategy }}
+          **Image Tag:** ${{ inputs.image_tag }}
+          **Risk Level:** ${{ needs.pre-deployment-validation.outputs.risk-level }}
+          
+          **Repository:** ${{ github.repository }}
+          **Branch:** ${{ github.ref_name }}
+          **Commit:** ${{ github.sha }}
+          **Triggered by:** ${{ github.actor }}
+          **Workflow:** ${{ github.workflow }}
+          
+          **Pre-deployment Status:** ${{ needs.pre-deployment-validation.outputs.validation-status }}
+          
+          **Approval Required:** Manual approval needed before proceeding
+          **Timeout:** 1 hour
+          EOF
+          )
+          
+          echo "$DEPLOYMENT_DETAILS"
+
+      - name: 💬 Slack Notification
+        if: secrets.SLACK_WEBHOOK_URL
+        uses: 8398a7/action-slack@v3
+        with:
+          status: custom
+          custom_payload: |
+            {
+              "text": "🚨 Deployment Approval Required",
+              "attachments": [{
+                "color": "${{ needs.pre-deployment-validation.outputs.risk-level == 'HIGH' && 'danger' || needs.pre-deployment-validation.outputs.risk-level == 'MEDIUM' && 'warning' || 'good' }}",
+                "fields": [
+                  {"title": "Environment", "value": "${{ inputs.environment }}", "short": true},
+                  {"title": "Risk Level", "value": "${{ needs.pre-deployment-validation.outputs.risk-level }}", "short": true},
+                  {"title": "Repository", "value": "${{ github.repository }}", "short": true},
+                  {"title": "Branch", "value": "${{ github.ref_name }}", "short": true},
+                  {"title": "Image Tag", "value": "${{ inputs.image_tag }}", "short": true},
+                  {"title": "Strategy", "value": "${{ inputs.deployment_strategy }}", "short": true},
+                  {"title": "Triggered by", "value": "${{ github.actor }}", "short": true},
+                  {"title": "Approval URL", "value": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}", "short": false}
+                ]
+              }]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      - name: 📧 Teams Notification
+        if: secrets.TEAMS_WEBHOOK_URL
+        run: |
+          curl -H "Content-Type: application/json" -d '{
+            "title": "🚨 Deployment Approval Required",
+            "text": "Manual approval needed for ${{ inputs.environment }} deployment",
+            "sections": [{
+              "facts": [
+                {"name": "Environment", "value": "${{ inputs.environment }}"},
+                {"name": "Risk Level", "value": "${{ needs.pre-deployment-validation.outputs.risk-level }}"},
+                {"name": "Repository", "value": "${{ github.repository }}"},
+                {"name": "Branch", "value": "${{ github.ref_name }}"},
+                {"name": "Image Tag", "value": "${{ inputs.image_tag }}"},
+                {"name": "Strategy", "value": "${{ inputs.deployment_strategy }}"},
+                {"name": "Triggered by", "value": "${{ github.actor }}"}
+              ]
+            }],
+            "potentialAction": [{
+              "name": "View Approval Request",
+              "target": ["${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"]
+            }]
+          }' "${{ secrets.TEAMS_WEBHOOK_URL }}"
+
+      - name: ⏳ Wait for Manual Approval
+        uses: trstringer/manual-approval@v1
+        timeout-minutes: 60
+        with:
+          secret: ${{ github.TOKEN }}
+          approvers: ${{ secrets.DEPLOYMENT_APPROVERS_TEAM }}
+          minimum-approvals: 2
+          issue-title: "Deployment Approval: ${{ inputs.environment }}"
+          issue-body: |
+            ## 🚀 Deployment Approval Required
+            
+            **Please review the following deployment request:**
+            
+            - **Environment:** ${{ inputs.environment }}
+            - **Deployment Strategy:** ${{ inputs.deployment_strategy }}
+            - **Docker Image:** ${{ inputs.image_tag }}
+            - **Risk Level:** ${{ needs.pre-deployment-validation.outputs.risk-level }}
+            - **Pre-deployment Status:** ${{ needs.pre-deployment-validation.outputs.validation-status }}
+            
+            ---
+            
+            ### Repository Information
+            - **Repository:** ${{ github.repository }}
+            - **Branch:** ${{ github.ref_name }}
+            - **Commit SHA:** ${{ github.sha }}
+            - **Triggered by:** ${{ github.actor }}
+            - **Workflow Run:** [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            
+            ---
+            
+            ### Pre-Deployment Checklist
+            - [ ] Code review completed
+            - [ ] Security scan results reviewed
+            - [ ] Test results verified
+            - [ ] Rollback plan confirmed
+            - [ ] Monitoring alerts configured
+            - [ ] Documentation updated
+            
+            ---
+            
+            ### Approval Instructions
+            - **Minimum Approvals Required:** 2
+            - **Timeout:** 60 minutes
+            - **To Approve:** Comment `approved`, `approve`, `lgtm`, or `yes`
+            - **To Reject:** Comment `denied`, `deny`, `rejected`, or `no`
+            
+            **Note:** This approval is required due to: ${{ needs.pre-deployment-validation.outputs.reason }}
+
+  # ═══════════════════════════════════════════════════════════════
+  # POST-APPROVAL ACTIONS AND FINAL VALIDATION
+  # ═══════════════════════════════════════════════════════════════
+  post-approval-actions:
+    name: ✅ Post-Approval Actions
+    runs-on: ubuntu-latest
+    needs: [pre-deployment-validation, request-approval]
+    if: always() && (needs.pre-deployment-validation.outputs.approval-required == 'false' || needs.request-approval.result == 'success')
+    
+    outputs:
+      deployment-approved: ${{ steps.final-check.outputs.approved }}
+      deployment-id: ${{ steps.generate-id.outputs.deployment-id }}
+    
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🔢 Generate Deployment ID
+        id: generate-id
+        run: |
+          DEPLOYMENT_ID="${{ inputs.environment }}-$(date +%s)-$(echo ${{ github.sha }} | cut -c1-7)"
+          echo "deployment-id=$DEPLOYMENT_ID" >> $GITHUB_OUTPUT
+          echo "🔢 Generated Deployment ID: $DEPLOYMENT_ID"
+
+      - name: 🔍 Final Security Check
+        run: |
+          echo "Running final security validation..."
+          
+          # Re-run critical security checks
+          if [ -f "security/security-scan.sh" ]; then
+            chmod +x security/security-scan.sh
+            if ! ./security/security-scan.sh ${{ inputs.environment }} all critical true; then
+              echo "❌ Final security check failed"
+              exit 1
+            fi
+          fi
+          
+          echo "✅ Final security check passed"
+
+      - name: 📊 Generate Deployment Manifest
+        run: |
+          cat > deployment-manifest.json << EOF
+          {
+            "deployment_id": "${{ steps.generate-id.outputs.deployment-id }}",
+            "environment": "${{ inputs.environment }}",
+            "strategy": "${{ inputs.deployment_strategy }}",
+            "image_tag": "${{ inputs.image_tag }}",
+            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "repository": "${{ github.repository }}",
+            "branch": "${{ github.ref_name }}",
+            "commit_sha": "${{ github.sha }}",
+            "actor": "${{ github.actor }}",
+            "workflow_run_id": "${{ github.run_id }}",
+            "risk_level": "${{ needs.pre-deployment-validation.outputs.risk-level }}",
+            "approval_required": ${{ needs.pre-deployment-validation.outputs.approval-required }},
+            "approval_status": "${{ needs.request-approval.result || 'not-required' }}",
+            "validation_status": "${{ needs.pre-deployment-validation.outputs.validation-status }}"
+          }
+          EOF
+          
+          echo "📊 Deployment manifest created:"
+          cat deployment-manifest.json
+
+      - name: 💾 Store Deployment Record
+        uses: actions/upload-artifact@v3
+        with:
+          name: deployment-manifest-${{ steps.generate-id.outputs.deployment-id }}
+          path: deployment-manifest.json
+          retention-days: 90
+
+      - name: ✅ Final Approval Check
+        id: final-check
+        run: |
+          APPROVED="true"
+          APPROVAL_NOTES=()
+          
+          # Check if approval was bypassed
+          if [ "${{ inputs.bypass_approval }}" = "true" ]; then
+            APPROVAL_NOTES+=("Emergency bypass - approval skipped")
+          fi
+          
+          # Check if approval was required and obtained
+          if [ "${{ needs.pre-deployment-validation.outputs.approval-required }}" = "true" ]; then
+            if [ "${{ needs.request-approval.result }}" = "success" ]; then
+              APPROVAL_NOTES+=("Manual approval obtained")
+            else
+              APPROVED="false"
+              APPROVAL_NOTES+=("Manual approval failed or timed out")
+            fi
+          else
+            APPROVAL_NOTES+=("No approval required")
+          fi
+          
+          echo "approved=$APPROVED" >> $GITHUB_OUTPUT
+          echo "notes=${APPROVAL_NOTES[*]}" >> $GITHUB_OUTPUT
+          
+          echo "🎯 Final Approval Status: $APPROVED"
+          echo "📝 Notes: ${APPROVAL_NOTES[*]}"
+          
+          if [ "$APPROVED" = "false" ]; then
+            echo "❌ Deployment not approved - blocking deployment"
+            exit 1
+          fi
+
+      - name: 🔔 Deployment Approved Notification
+        if: steps.final-check.outputs.approved == 'true'
+        run: |
+          echo "🎉 Deployment approved and ready to proceed!"
+          echo "Deployment ID: ${{ steps.generate-id.outputs.deployment-id }}"
+          echo "Environment: ${{ inputs.environment }}"
+          echo "Strategy: ${{ inputs.deployment_strategy }}"
+          echo "Image: ${{ inputs.image_tag }}"
+
+  # ═══════════════════════════════════════════════════════════════
+  # APPROVAL TIMEOUT HANDLER
+  # ═══════════════════════════════════════════════════════════════
+  handle-timeout:
+    name: ⏰ Handle Approval Timeout
+    runs-on: ubuntu-latest
+    needs: [pre-deployment-validation, request-approval]
+    if: always() && needs.request-approval.result == 'failure'
+    
+    steps:
+      - name: 🚨 Approval Timeout Alert
+        run: |
+          echo "🚨 DEPLOYMENT APPROVAL TIMEOUT"
+          echo "Environment: ${{ inputs.environment }}"
+          echo "Image Tag: ${{ inputs.image_tag }}"
+          echo "Deployment has been blocked due to approval timeout"
+
+      - name: 📢 Timeout Notification
+        if: secrets.SLACK_WEBHOOK_URL
+        uses: 8398a7/action-slack@v3
+        with:
+          status: failure
+          text: |
+            🚨 **DEPLOYMENT APPROVAL TIMEOUT**
+            
+            Environment: ${{ inputs.environment }}
+            Image Tag: ${{ inputs.image_tag }}
+            Repository: ${{ github.repository }}
+            
+            The deployment approval request timed out after 1 hour.
+            Manual intervention may be required.
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      - name: ❌ Block Deployment
+        run: |
+          echo "Deployment blocked due to approval timeout"
+          exit 1
