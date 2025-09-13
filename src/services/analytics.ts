@@ -58,19 +58,20 @@ class AnalyticsService {
     if (this.isInitialized) return;
 
     this.debugMode = import.meta.env.MODE === 'development';
-    
+
     if (this.debugMode) {
       console.log('🔍 Analytics Service: Initializing in development mode');
     }
 
+    // Set initialized early to prevent race conditions
+    this.isInitialized = true;
+
     // Initialize Google Analytics
     await this.initializeGoogleAnalytics();
-    
+
     // Initialize Mixpanel
     await this.initializeMixpanel();
 
-    this.isInitialized = true;
-    
     // Track initialization (call after setting isInitialized)
     this.track('analytics_initialized', {
       providers: Array.from(this.enabledProviders),

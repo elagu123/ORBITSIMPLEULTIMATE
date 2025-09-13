@@ -39,7 +39,8 @@
       "WebFetch(domain:vercel.com)",
       "Bash(npm ls:*)",
       "Bash(npm cache clean:*)",
-      "Bash(npm:*)"
+      "Bash(npm:*)",
+      "WebFetch(domain:orbitclaude-git-main-agustins-projects-71480d85.vercel.app)"
     ],
     "deny": [],
     "ask": []
