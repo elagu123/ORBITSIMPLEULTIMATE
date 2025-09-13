@@ -12,6 +12,10 @@ export default defineConfig(({ mode }) => {
       resolve: {
         alias: {
           '@': path.resolve(__dirname, '.'),
+          // Force consistent React versions to prevent TDZ issues
+          'react': path.resolve('./node_modules/react'),
+          'react-dom': path.resolve('./node_modules/react-dom'),
+          'prop-types': path.resolve('./node_modules/prop-types')
         }
       },
       plugins: [
@@ -144,7 +148,10 @@ export default defineConfig(({ mode }) => {
             manualChunks: (id) => {
               // Node modules vendor splitting
               if (id.includes('node_modules')) {
-                // React core - smallest chunk
+                // React core - critical chunk with PropTypes priority
+                if (id.includes('prop-types')) {
+                  return 'react-vendor'; // Keep PropTypes with React to prevent TDZ
+                }
                 if (id.includes('react') || id.includes('react-dom') || id.includes('scheduler')) {
                   return 'react-vendor';
                 }

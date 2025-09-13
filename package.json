@@ -16,7 +16,8 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "test:ci": "jest --ci --coverage --watchAll=false",
-    "vercel-build": "npm run build"
+    "pre-deploy": "node scripts/pre-deploy-check.js",
+    "vercel-build": "npm run pre-deploy"
   },
   "dependencies": {
     "@firebase/app": "^0.14.2",
