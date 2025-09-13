@@ -411,6 +411,45 @@ app.use((req, res) => {
   res.status(404).json({ error: 'Endpoint not found' });
 });
 
+// Video download proxy endpoint for security
+app.post('/api/download-video', async (req, res) => {
+  try {
+    const { videoUrl } = req.body;
+    
+    if (!videoUrl) {
+      return res.status(400).json({ error: 'Video URL is required' });
+    }
+
+    console.log('🎥 Proxying video download:', videoUrl.substring(0, 50) + '...');
+    
+    // Add API key to the URL securely on the backend
+    const secureUrl = process.env.GEMINI_API_KEY 
+      ? `${videoUrl}&key=${process.env.GEMINI_API_KEY}`
+      : videoUrl;
+    
+    const response = await fetch(secureUrl);
+    
+    if (!response.ok) {
+      throw new Error(`Video fetch failed: ${response.status}`);
+    }
+    
+    // Stream the video data directly to the client
+    res.set({
+      'Content-Type': 'video/mp4',
+      'Content-Disposition': 'attachment; filename="generated-video.mp4"'
+    });
+    
+    response.body.pipe(res);
+    
+  } catch (error) {
+    console.error('❌ Video download error:', error);
+    res.status(500).json({ 
+      error: 'Failed to download video',
+      message: error.message 
+    });
+  }
+});
+
 // Start server
 app.listen(PORT, () => {
   console.log(`🚀 Orbit AI Backend Server running on port ${PORT}`);

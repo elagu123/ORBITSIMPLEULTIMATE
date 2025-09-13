@@ -17,8 +17,8 @@ class AIServiceSecure {
   private backendUrl: string;
 
   constructor() {
-    // Use environment variable for backend URL, fallback to localhost for development
-    this.backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+    // Use AI Agent URL directly since backend is unstable
+    this.backendUrl = import.meta.env.VITE_AGENT_URL || 'http://localhost:3003';
   }
 
   private async apiCall(endpoint: string, data: any = {}): Promise<any> {
@@ -26,22 +26,119 @@ class AIServiceSecure {
     const startTime = performance.now();
     
     try {
-      response = await fetch(`${this.backendUrl}${endpoint}`, {
+      // Adapt endpoint for AI Agent format
+      let agentEndpoint = endpoint;
+      let agentData = data;
+      
+      // Map backend endpoints to AI Agent endpoints
+      if (endpoint === '/api/ai/generate') {
+        agentEndpoint = '/agent/chat';
+        agentData = {
+          message: data.prompt || data.message || 'Generate content',
+          businessId: 'wizard',
+          userId: 'user',
+          context: data.context || {}
+        };
+      } else if (endpoint === '/api/ai/onboarding/magic' || endpoint === '/api/ai/magic-onboarding') {
+        agentEndpoint = '/agent/chat';
+        agentData = {
+          message: `You are a business profile generator. Create a complete BusinessProfile JSON object for "${data.businessName}" in "${data.industry}". 
+
+Return ONLY a valid JSON object with this exact structure:
+{
+  "businessName": "${data.businessName}",
+  "industry": "${data.industry}",
+  "marketingGoals": ["increaseSales", "buildBrandAwareness"],
+  "brandVoice": {
+    "tone": "professional",
+    "brandValues": ["quality", "innovation", "customer-focus"]
+  },
+  "aiStrategy": {
+    "brandVoiceSpectrums": {
+      "formalVsCasual": 0.6,
+      "seriousVsHumorous": 0.4,
+      "calmVsEnthusiastic": 0.7
+    },
+    "brandArchetype": "The Helper",
+    "keyTerminology": {
+      "useWords": ["premium", "quality", "reliable"],
+      "avoidWords": ["cheap", "basic", "standard"]
+    },
+    "targetAudience": {
+      "description": "Target customers for this business",
+      "painPoints": ["Common problems they face"]
+    },
+    "seoGuidelines": {
+      "primaryKeywords": ["main keywords"],
+      "secondaryKeywords": ["supporting keywords"]
+    }
+  }
+}
+
+Respond with ONLY the JSON object, no other text.`,
+          businessId: 'onboarding',
+          userId: 'wizard',
+          context: { businessName: data.businessName, industry: data.industry }
+        };
+      }
+
+      response = await fetch(`${this.backendUrl}${agentEndpoint}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         credentials: 'include',
-        body: JSON.stringify(data),
+        body: JSON.stringify(agentData),
       });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
-        throw new Error(`Backend API Error (${response.status}): ${errorData.message || errorData.error}`);
+        throw new Error(`AI Agent Error (${response.status}): ${errorData.message || errorData.error}`);
       }
 
       const result = await response.json();
-      if (!result.success) {
+      
+      // AI Agent returns different format - adapt it back
+      if (agentEndpoint === '/agent/chat') {
+        const responseText = result.response || result.generatedContent;
+        
+        // Special handling for magic onboarding - try to parse JSON
+        if (endpoint === '/api/ai/magic-onboarding' || endpoint === '/api/ai/onboarding/magic') {
+          try {
+            // Try to extract JSON from the response (handle code blocks)
+            let jsonText = responseText;
+            
+            // Remove markdown code blocks if present
+            const codeBlockMatch = responseText.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+            if (codeBlockMatch) {
+              jsonText = codeBlockMatch[1];
+            } else {
+              // Try to find JSON object directly
+              const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+              if (jsonMatch) {
+                jsonText = jsonMatch[0];
+              }
+            }
+            
+            const parsedProfile = JSON.parse(jsonText);
+            return {
+              success: true,
+              result: parsedProfile,
+              rawText: responseText
+            };
+          } catch (parseError) {
+            console.warn('Failed to parse JSON from AI response, returning raw text:', parseError);
+          }
+        }
+        
+        return {
+          success: true,
+          result: responseText,
+          rawText: responseText
+        };
+      }
+      
+      if (!result.success && !result.response) {
         throw new Error(result.message || result.error || 'API call failed');
       }
 
@@ -62,7 +159,7 @@ class AIServiceSecure {
       
       // More specific error handling
       if (error instanceof TypeError && error.message.includes('fetch')) {
-        throw new Error('⚠️ Backend server is not running. Please start the AI backend first.');
+        throw new Error('⚠️ AI Agent is not running. Please start the AI Agent first.');
       }
       
       throw error;

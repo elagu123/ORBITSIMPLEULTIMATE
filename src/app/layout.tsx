@@ -129,7 +129,7 @@ const MainLayout: React.FC = () => {
     <div className="flex h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-purple-50/30 dark:from-gray-900 dark:via-blue-900/10 dark:to-purple-900/10 text-gray-800 dark:text-gray-200">
       {!hasOnboarded && (
         <Suspense fallback={<PageLoading pageName="Onboarding" />}>
-          <OnboardingWizard />
+          <LazyEnhancedOnboardingWizard />
         </Suspense>
       )}
       <Sidebar activePage={activePage} setActivePage={handlePageChange} />

@@ -444,9 +444,14 @@ const VideoGenerator: React.FC<{onVideoSelect: (url: string) => void; selectedIm
         }
         
         const downloadLink = currentOperation.response?.generatedVideos?.[0]?.video?.uri;
-        if (downloadLink && process.env.API_KEY) {
+        if (downloadLink) {
             setStatusMessage("Fetching your video...");
-            const response = await fetch(`${downloadLink}&key=${process.env.API_KEY}`);
+            // Use backend proxy for secure video download
+            const response = await fetch('/api/download-video', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ videoUrl: downloadLink })
+            });
             const blob = await response.blob();
             const url = URL.createObjectURL(blob);
             setGeneratedVideoUrl(url); 

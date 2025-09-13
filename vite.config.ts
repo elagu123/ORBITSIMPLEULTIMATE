@@ -122,7 +122,7 @@ export default defineConfig(({ mode }) => {
         })
       ],
       build: {
-        target: 'es2018',
+        target: 'es2020',
         minify: 'terser',
         chunkSizeWarningLimit: 500,
         terserOptions: {
@@ -133,6 +133,10 @@ export default defineConfig(({ mode }) => {
           },
           mangle: {
             safari10: true,
+            reserved: ['a', 'b', 'c', 'd', 'e'], // Prevent variable name conflicts
+          },
+          format: {
+            comments: false,
           },
         },
         rollupOptions: {
@@ -146,7 +150,7 @@ export default defineConfig(({ mode }) => {
               // Node modules vendor splitting
               if (id.includes('node_modules')) {
                 // React core - smallest chunk
-                if (id.includes('react') || id.includes('react-dom')) {
+                if (id.includes('react') || id.includes('react-dom') || id.includes('scheduler')) {
                   return 'react-vendor';
                 }
                 

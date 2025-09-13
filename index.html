@@ -8,7 +8,6 @@
     <link rel="alternate icon" href="/favicon.ico" />
     
     <!-- Performance optimizations -->
-    <link rel="preconnect" href="https://cdn.tailwindcss.com" />
     <link rel="preconnect" href="https://cdn.jsdelivr.net" />
     <link rel="preconnect" href="https://esm.sh" />
     <link rel="dns-prefetch" href="https://aistudiocdn.com" />
@@ -33,8 +32,8 @@
     <!-- Preload critical resources -->
     <link rel="prefetch" href="/src/app/dashboard/page.tsx" />
     <link rel="prefetch" href="/src/app/content/page.tsx" />
+    <!-- Temporary Tailwind CDN for development (will be replaced with build process) -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reactflow@11.11.4/dist/style.css" />
     <script>
       tailwind.config = {
         darkMode: 'class',
@@ -47,6 +46,7 @@
         }
       }
     </script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reactflow@11.11.4/dist/style.css" />
     <style>
       /* General Animations */
       @keyframes fade-in {

@@ -393,12 +393,17 @@ class PerformanceMonitor {
   // ==========================================================================
 
   private reportMetric(metricName: string, value: number, rating?: string): void {
-    trackEvent('performance_metric', {
-      metric: metricName,
-      value: Math.round(value),
-      rating,
-      timestamp: Date.now()
-    });
+    try {
+      trackEvent('performance_metric', {
+        metric: metricName,
+        value: Math.round(value),
+        rating,
+        timestamp: Date.now()
+      });
+    } catch (error) {
+      // Silently fail if analytics not initialized yet
+      console.debug('Performance metric not tracked:', metricName, error);
+    }
   }
 
   private startPeriodicReporting(): void {

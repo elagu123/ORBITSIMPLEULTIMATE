@@ -24,13 +24,8 @@ export const useMarketingSuggestion = () => {
   }, [profile]); // Rerun when profile changes
 
   useEffect(() => {
-    if (process.env.API_KEY) {
-      fetchSuggestion();
-    } else {
-      setSuggestion("AI suggestions are disabled. Please provide a Gemini API key to enable this feature.");
-      setIsLoading(false);
-      setError("API key is missing.");
-    }
+    // Always try to fetch suggestions - the backend handles API key management
+    fetchSuggestion();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile]); // Refetch when the profile is loaded/updated
 

@@ -71,7 +71,7 @@ class AnalyticsService {
 
     this.isInitialized = true;
     
-    // Track initialization
+    // Track initialization (call after setting isInitialized)
     this.track('analytics_initialized', {
       providers: Array.from(this.enabledProviders),
       environment: import.meta.env.MODE

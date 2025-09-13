@@ -26,7 +26,11 @@
       "Bash(rm:*)",
       "Bash(cat:*)",
       "Bash(node:*)",
-      "Bash(npx tailwindcss init:*)"
+      "Bash(npx tailwindcss init:*)",
+      "Bash(sed:*)",
+      "Bash(vercel:*)",
+      "WebFetch(domain:orbitclaude-lkeqtkg5y-agustins-projects-71480d85.vercel.app)",
+      "WebFetch(domain:orbitclaude-fhd8n3gar-agustins-projects-71480d85.vercel.app)"
     ],
     "deny": [],
     "ask": []

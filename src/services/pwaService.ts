@@ -53,6 +53,12 @@ class PWAService {
   }
 
   private async initializeServiceWorker(): Promise<void> {
+    // Skip service worker in development
+    if (import.meta.env.MODE === 'development') {
+      console.log('🔧 PWA Service Worker skipped in development mode');
+      return;
+    }
+    
     if ('serviceWorker' in navigator) {
       this.workbox = new Workbox('/sw.js', { scope: '/' });
 
