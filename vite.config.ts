@@ -71,7 +71,7 @@ export default defineConfig(({ mode }) => {
               }
             ]
           },
-          includeAssets: ['favicon.ico', 'apple-touch-icon.png'],
+          includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'pwa-192x192.png', 'pwa-512x512.png', 'pwa-192x192.svg', 'pwa-512x512.svg'],
           manifest: {
             name: 'Orbit Marketing Platform',
             short_name: 'Orbit MKT',
@@ -86,9 +86,14 @@ export default defineConfig(({ mode }) => {
             lang: 'es',
             icons: [
               {
-                src: 'favicon.svg',
-                sizes: 'any',
-                type: 'image/svg+xml'
+                src: 'pwa-192x192.png',
+                sizes: '192x192',
+                type: 'image/png'
+              },
+              {
+                src: 'pwa-512x512.png',
+                sizes: '512x512',
+                type: 'image/png'
               },
               {
                 src: 'pwa-192x192.svg',
@@ -101,10 +106,9 @@ export default defineConfig(({ mode }) => {
                 type: 'image/svg+xml'
               },
               {
-                src: 'pwa-512x512.svg',
-                sizes: '512x512',
-                type: 'image/svg+xml',
-                purpose: 'any maskable'
+                src: 'favicon.svg',
+                sizes: 'any',
+                type: 'image/svg+xml'
               }
             ],
             shortcuts: [
@@ -113,14 +117,14 @@ export default defineConfig(({ mode }) => {
                 short_name: 'Panel',
                 description: 'Ver panel de control',
                 url: '/?page=dashboard',
-                icons: [{ src: 'pwa-192x192.svg', sizes: '192x192' }]
+                icons: [{ src: 'pwa-192x192.png', sizes: '192x192' }]
               },
               {
                 name: 'Generar Contenido',
                 short_name: 'Contenido',
                 description: 'Crear contenido con IA',
                 url: '/?page=content',
-                icons: [{ src: 'pwa-192x192.svg', sizes: '192x192' }]
+                icons: [{ src: 'pwa-192x192.png', sizes: '192x192' }]
               }
             ]
           }
@@ -128,19 +132,8 @@ export default defineConfig(({ mode }) => {
       ],
       build: {
         target: 'es2020',
-        minify: 'terser',
+        minify: 'esbuild', // Use esbuild instead of terser to avoid variable conflicts
         chunkSizeWarningLimit: 500,
-        terserOptions: {
-          compress: {
-            drop_console: true, // Remove console.logs in production
-            drop_debugger: true,
-            pure_funcs: ['console.log', 'console.debug', 'console.trace'],
-          },
-          mangle: false, // Disable variable name mangling to prevent conflicts
-          format: {
-            comments: false,
-          },
-        },
         rollupOptions: {
           treeshake: {
             moduleSideEffects: false,
