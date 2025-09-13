@@ -30,15 +30,10 @@ i18n
     
     // Development options
     debug: false, // Disable debug to reduce console warnings
-    
+
     // React specific options
     react: {
       useSuspense: false, // Disable suspense for better control
-    },
-    
-    // Load path for additional resources
-    backend: {
-      loadPath: '/locales/{{lng}}/{{ns}}.json',
     }
   });
 

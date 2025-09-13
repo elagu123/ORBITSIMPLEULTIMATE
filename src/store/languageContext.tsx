@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import '../i18n/config'; // Ensure i18n is initialized
 
 interface LanguageContextType {
   currentLanguage: string;
@@ -17,6 +18,13 @@ interface LanguageProviderProps {
 export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) => {
   const { i18n } = useTranslation();
   const [isLoading, setIsLoading] = useState(false);
+
+  // Ensure i18n is initialized
+  useEffect(() => {
+    if (!i18n.isInitialized) {
+      console.warn('i18n not initialized, initializing now...');
+    }
+  }, [i18n]);
   
   const availableLanguages = [
     { code: 'es', name: 'Español', flag: '🇪🇸' },
