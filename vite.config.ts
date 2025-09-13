@@ -86,19 +86,24 @@ export default defineConfig(({ mode }) => {
             lang: 'es',
             icons: [
               {
-                src: 'pwa-192x192.png',
+                src: 'favicon.svg',
+                sizes: 'any',
+                type: 'image/svg+xml'
+              },
+              {
+                src: 'pwa-192x192.svg',
                 sizes: '192x192',
-                type: 'image/png'
+                type: 'image/svg+xml'
               },
               {
-                src: 'pwa-512x512.png',
+                src: 'pwa-512x512.svg',
                 sizes: '512x512',
-                type: 'image/png'
+                type: 'image/svg+xml'
               },
               {
-                src: 'pwa-512x512.png',
+                src: 'pwa-512x512.svg',
                 sizes: '512x512',
-                type: 'image/png',
+                type: 'image/svg+xml',
                 purpose: 'any maskable'
               }
             ],
@@ -108,14 +113,14 @@ export default defineConfig(({ mode }) => {
                 short_name: 'Panel',
                 description: 'Ver panel de control',
                 url: '/?page=dashboard',
-                icons: [{ src: 'pwa-192x192.png', sizes: '192x192' }]
+                icons: [{ src: 'pwa-192x192.svg', sizes: '192x192' }]
               },
               {
                 name: 'Generar Contenido',
                 short_name: 'Contenido',
                 description: 'Crear contenido con IA',
                 url: '/?page=content',
-                icons: [{ src: 'pwa-192x192.png', sizes: '192x192' }]
+                icons: [{ src: 'pwa-192x192.svg', sizes: '192x192' }]
               }
             ]
           }
@@ -131,9 +136,7 @@ export default defineConfig(({ mode }) => {
             drop_debugger: true,
             pure_funcs: ['console.log', 'console.debug', 'console.trace'],
           },
-          mangle: {
-            safari10: true,
-          },
+          mangle: false, // Disable variable name mangling to prevent conflicts
           format: {
             comments: false,
           },

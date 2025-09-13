@@ -1,0 +1,25 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!-- Main orbit circle -->
+  <circle cx="256" cy="256" r="220" fill="#3b82f6" stroke="#1d4ed8" stroke-width="8"/>
+
+  <!-- Orbital elements - planets/satellites -->
+  <circle cx="192" cy="192" r="28" fill="white" opacity="0.9"/>
+  <circle cx="320" cy="192" r="16" fill="white" opacity="0.7"/>
+  <circle cx="384" cy="256" r="22" fill="white" opacity="0.8"/>
+  <circle cx="128" cy="320" r="14" fill="white" opacity="0.6"/>
+  <circle cx="288" cy="352" r="18" fill="white" opacity="0.7"/>
+
+  <!-- Additional smaller satellites -->
+  <circle cx="160" cy="160" r="8" fill="white" opacity="0.5"/>
+  <circle cx="352" cy="160" r="6" fill="white" opacity="0.4"/>
+  <circle cx="352" cy="352" r="10" fill="white" opacity="0.6"/>
+  <circle cx="160" cy="352" r="7" fill="white" opacity="0.5"/>
+
+  <!-- Orbit lines -->
+  <circle cx="256" cy="256" r="160" fill="none" stroke="white" stroke-width="2" opacity="0.3"/>
+  <circle cx="256" cy="256" r="120" fill="none" stroke="white" stroke-width="2" opacity="0.3"/>
+  <circle cx="256" cy="256" r="80" fill="none" stroke="white" stroke-width="2" opacity="0.3"/>
+
+  <!-- Center element -->
+  <circle cx="256" cy="256" r="20" fill="white" opacity="0.9"/>
+</svg>
