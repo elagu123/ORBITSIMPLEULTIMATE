@@ -132,8 +132,8 @@ export default defineConfig(({ mode }) => {
       ],
       build: {
         target: 'es2020',
-        minify: 'esbuild', // Use esbuild instead of terser to avoid variable conflicts
-        chunkSizeWarningLimit: 500,
+        minify: false, // Disable all minification to prevent variable initialization conflicts
+        chunkSizeWarningLimit: 1000, // Increase limit since files will be larger without minification
         rollupOptions: {
           treeshake: {
             moduleSideEffects: false,
