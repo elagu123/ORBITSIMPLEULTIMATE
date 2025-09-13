@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { useTranslation } from 'react-i18next';
-import '../i18n/config'; // Ensure i18n is initialized
+import i18n from '../i18n/config'; // Import i18n instance directly
 
 interface LanguageContextType {
   currentLanguage: string;
@@ -16,38 +15,42 @@ interface LanguageProviderProps {
 }
 
 export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) => {
-  const { i18n } = useTranslation();
   const [isLoading, setIsLoading] = useState(false);
-
-  // Ensure i18n is initialized
-  useEffect(() => {
-    if (!i18n.isInitialized) {
-      console.warn('i18n not initialized, initializing now...');
-    }
-  }, [i18n]);
+  const [currentLanguage, setCurrentLanguage] = useState(i18n.language || 'es');
   
   const availableLanguages = [
     { code: 'es', name: 'Español', flag: '🇪🇸' },
     { code: 'en', name: 'English', flag: '🇺🇸' }
   ];
 
-  // Save language preference to localStorage
+  // Initialize from localStorage and listen for language changes
   useEffect(() => {
     const savedLanguage = localStorage.getItem('orbit-language');
-    if (savedLanguage && savedLanguage !== i18n.language) {
-      i18n.changeLanguage(savedLanguage);
+    if (savedLanguage && savedLanguage !== currentLanguage) {
+      i18n.changeLanguage(savedLanguage).then(() => {
+        setCurrentLanguage(savedLanguage);
+      });
     }
-  }, [i18n]);
+
+    // Listen for i18n language changes
+    const handleLanguageChange = (lng: string) => {
+      setCurrentLanguage(lng);
+    };
+
+    i18n.on('languageChanged', handleLanguageChange);
+    return () => i18n.off('languageChanged', handleLanguageChange);
+  }, [currentLanguage]);
 
   const changeLanguage = async (languageCode: string) => {
     setIsLoading(true);
     try {
       await i18n.changeLanguage(languageCode);
       localStorage.setItem('orbit-language', languageCode);
-      
+      setCurrentLanguage(languageCode);
+
       // Update document lang attribute for accessibility
       document.documentElement.lang = languageCode;
-      
+
       // Update page direction if needed (for future RTL support)
       document.documentElement.dir = languageCode === 'ar' ? 'rtl' : 'ltr';
     } catch (error) {
@@ -58,7 +61,7 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) 
   };
 
   const value: LanguageContextType = {
-    currentLanguage: i18n.language,
+    currentLanguage,
     availableLanguages,
     changeLanguage,
     isLoading
