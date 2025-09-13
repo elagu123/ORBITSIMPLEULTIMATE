@@ -135,6 +135,7 @@ export default defineConfig(({ mode }) => {
         minify: false, // Disable all minification to prevent variable initialization conflicts
         chunkSizeWarningLimit: 1000, // Increase limit since files will be larger without minification
         rollupOptions: {
+          external: ['prop-types'], // Externalize prop-types to prevent hoisting issues
           treeshake: {
             moduleSideEffects: false,
             propertyReadSideEffects: false,

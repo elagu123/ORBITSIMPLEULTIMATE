@@ -34,7 +34,8 @@
       "Bash(grep:*)",
       "WebFetch(domain:orbitclaude-4x0u427x6-agustins-projects-71480d85.vercel.app)",
       "WebFetch(domain:orbitclaude-kny18xeld-agustins-projects-71480d85.vercel.app)",
-      "WebFetch(domain:orbitclaude-8v1szg7a9-agustins-projects-71480d85.vercel.app)"
+      "WebFetch(domain:orbitclaude-8v1szg7a9-agustins-projects-71480d85.vercel.app)",
+      "WebSearch"
     ],
     "deny": [],
     "ask": []
