@@ -133,7 +133,6 @@ export default defineConfig(({ mode }) => {
           },
           mangle: {
             safari10: true,
-            reserved: ['a', 'b', 'c', 'd', 'e'], // Prevent variable name conflicts
           },
           format: {
             comments: false,

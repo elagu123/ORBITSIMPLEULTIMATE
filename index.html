@@ -16,15 +16,13 @@
     <script type="importmap">
 {
   "imports": {
-    "react": "https://esm.sh/react@18.2.0",
-    "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+    "react": "https://esm.sh/react@18.1.0",
+    "react-dom/client": "https://esm.sh/react-dom@18.1.0/client",
     "@google/genai": "https://esm.sh/@google/genai",
     "framer-motion": "https://esm.sh/framer-motion@10.12.18",
     "lucide-react": "https://esm.sh/lucide-react@0.294.0",
     "recharts": "https://esm.sh/recharts@2.12.7",
-    "reactflow": "https://esm.sh/reactflow@11.11.4",
-    "react/": "https://aistudiocdn.com/react@^19.1.1/",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.1.1/"
+    "reactflow": "https://esm.sh/reactflow@11.11.4"
   }
 }
 </script>
@@ -32,20 +30,6 @@
     <!-- Preload critical resources -->
     <link rel="prefetch" href="/src/app/dashboard/page.tsx" />
     <link rel="prefetch" href="/src/app/content/page.tsx" />
-    <!-- Temporary Tailwind CDN for development (will be replaced with build process) -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-      tailwind.config = {
-        darkMode: 'class',
-        theme: {
-          extend: {
-            colors: {
-              primary: {"50":"#eff6ff","100":"#dbeafe","200":"#bfdbfe","300":"#93c5fd","400":"#60a5fa","500":"#3b82f6","600":"#2563eb","700":"#1d4ed8","800":"#1e40af","900":"#1e3a8a","950":"#172554"}
-            }
-          }
-        }
-      }
-    </script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reactflow@11.11.4/dist/style.css" />
     <style>
       /* General Animations */

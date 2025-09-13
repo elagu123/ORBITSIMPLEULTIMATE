@@ -2,7 +2,9 @@
    ORBIT SIMPLE MKT - ESTILOS PRINCIPALES
    ============================================================================= */
 
-/* Note: Tailwind CSS is loaded via CDN in index.html, no need to import here */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 /* Variables CSS personalizadas */
 :root {
