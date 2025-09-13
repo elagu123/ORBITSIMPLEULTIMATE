@@ -65,10 +65,62 @@ const LoginPage: React.FC = () => {
         <div className="w-full max-w-md p-8 space-y-8 bg-white dark:bg-gray-800 rounded-lg shadow-2xl">
           {/* Header */}
           <div className="flex flex-col items-center">
-            <svg className="w-12 h-12 text-blue-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="10" />
-              <circle cx="12" cy="12" r="3" />
-            </svg>
+            <div className="relative w-20 h-20 mb-2">
+              <svg className="w-full h-full" viewBox="0 0 400 400" fill="none" xmlns="http://www.w3.org/2000/svg">
+                {/* Gradient definitions */}
+                <defs>
+                  <radialGradient id="orbitGradient" cx="50%" cy="50%" r="50%">
+                    <stop offset="0%" stopColor="#60a5fa" />
+                    <stop offset="50%" stopColor="#3b82f6" />
+                    <stop offset="100%" stopColor="#1e40af" />
+                  </radialGradient>
+                  <linearGradient id="ringGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#93c5fd" />
+                    <stop offset="100%" stopColor="#1e40af" />
+                  </linearGradient>
+                </defs>
+
+                {/* Outer orbit ring */}
+                <circle
+                  cx="200"
+                  cy="200"
+                  r="180"
+                  fill="none"
+                  stroke="url(#ringGradient)"
+                  strokeWidth="12"
+                  opacity="0.8"
+                />
+
+                {/* Middle orbit ring */}
+                <circle
+                  cx="200"
+                  cy="200"
+                  r="120"
+                  fill="none"
+                  stroke="url(#ringGradient)"
+                  strokeWidth="8"
+                  opacity="0.6"
+                />
+
+                {/* Central core */}
+                <circle
+                  cx="200"
+                  cy="200"
+                  r="60"
+                  fill="url(#orbitGradient)"
+                  className="animate-slow-spin"
+                />
+
+                {/* Inner core */}
+                <circle
+                  cx="200"
+                  cy="200"
+                  r="25"
+                  fill="#bfdbfe"
+                  opacity="0.9"
+                />
+              </svg>
+            </div>
             <h1 className="mt-4 text-3xl font-bold text-center text-gray-800 dark:text-white">
               {mode === 'login' ? t('auth.welcomeBack', { defaultValue: 'Welcome Back' }) : t('auth.joinOrbit', { defaultValue: 'Join Orbit MKT' })}
             </h1>
