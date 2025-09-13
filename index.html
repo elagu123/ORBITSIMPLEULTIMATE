@@ -8,16 +8,12 @@
     <link rel="alternate icon" href="/favicon.ico" />
     
     <!-- Performance optimizations -->
-    <link rel="preconnect" href="https://cdn.jsdelivr.net" />
     <link rel="preconnect" href="https://esm.sh" />
-    <link rel="dns-prefetch" href="https://aistudiocdn.com" />
     
-    <!-- Import map MUST come first -->
+    <!-- Import map for external libraries only (React will be bundled) -->
     <script type="importmap">
 {
   "imports": {
-    "react": "https://esm.sh/react@18.1.0",
-    "react-dom/client": "https://esm.sh/react-dom@18.1.0/client",
     "@google/genai": "https://esm.sh/@google/genai",
     "framer-motion": "https://esm.sh/framer-motion@10.12.18",
     "lucide-react": "https://esm.sh/lucide-react@0.294.0",
